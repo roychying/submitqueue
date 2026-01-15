@@ -25,8 +25,8 @@ make run-gateway
 # Using Go directly
 go run examples/server/gateway/main.go
 
-# Using Bazel
-bazel run //examples/server/gateway:gateway
+# Using Bazel wrapper directly
+./tools/bazel run //examples/server/gateway:gateway
 ```
 
 Test the service:
@@ -51,15 +51,16 @@ See [docs/architecture/STRUCTURE.md](docs/architecture/STRUCTURE.md) for a detai
 
 ### Prerequisites
 
-- **Go 1.24 or later** (required)
+- **Go 1.24 or later** (optional, Bazel manages its own Go toolchain)
 - **protoc** and Go plugins (optional, only needed if modifying proto files)
-- **Bazelisk** (optional, for Bazel builds)
-- **grpcurl** (optional, for testing)
+- **grpcurl** (optional, for manual testing)
 
-Install tools (optional):
+**Note**: The project includes `./tools/bazel` (bazelisk wrapper) and `.bazelversion`, so you don't need to install Bazel or Bazelisk separately.
+
+Install optional tools:
 ```bash
 # macOS
-brew install protobuf bazelisk grpcurl
+brew install protobuf grpcurl
 
 # Install Go plugins (only if you need to regenerate proto files)
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -127,31 +128,33 @@ go build -o bin/speculator_client ./examples/client/speculator/
 
 The project uses **Bzlmod** (not WORKSPACE) for dependency management. Bazel version is pinned at 8.4.1 in `.bazelversion`.
 
-```bash
-# Install Bazelisk (recommended)
-brew install bazelisk
+The project includes `./tools/bazel` which automatically downloads the correct Bazel version.
 
-# Build everything
-bazel build //...
+```bash
+# Build everything (using the wrapper)
+./tools/bazel build //...
 
 # Build specific components
-bazel build //gateway/protopb
-bazel build //gateway:gateway
-bazel build //examples/server/gateway:gateway
-bazel build //examples/client/gateway:gateway
+./tools/bazel build //gateway/protopb
+./tools/bazel build //gateway:gateway
+./tools/bazel build //examples/server/gateway:gateway
+./tools/bazel build //examples/client/gateway:gateway
 
 # Run a server
-bazel run //examples/server/gateway:gateway
+./tools/bazel run //examples/server/gateway:gateway
 
 # Run a client
-bazel run //examples/client/gateway:gateway -- -message "hello"
+./tools/bazel run //examples/client/gateway:gateway -- -message "hello"
 
-# Or use '.' from the directory
-cd examples/server/gateway && bazel run .
-cd examples/client/gateway && bazel run . -- -message "hello"
+# Or use the Makefile (recommended)
+make build
+make run-gateway
 ```
 
-**Note**: The repository uses Bzlmod for modern dependency management. All generated proto files are committed to the repository.
+**Note**:
+- The repository uses Bzlmod for modern dependency management
+- All generated proto files are committed to the repository
+- Use `./tools/bazel` instead of `bazel` to ensure correct version
 
 ### Running Services
 
@@ -333,5 +336,6 @@ bazel clean
 
 **Bazel build issues:**
 - Bazel version is pinned to 8.4.1 in `.bazelversion`
-- Use `./tools/bazel` wrapper or install bazelisk
-- Try `bazel shutdown` and rebuild
+- Always use `./tools/bazel` wrapper (not `bazel` directly)
+- Try `./tools/bazel shutdown` and rebuild
+- The wrapper automatically downloads the correct Bazel version

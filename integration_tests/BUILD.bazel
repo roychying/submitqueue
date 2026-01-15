@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "e2e_test",
+    srcs = ["api_test.go"],
+    # End-to-end tests require all servers to be running
+    # They validate the entire system working together
+    tags = [
+        "e2e",
+        "integration",
+        "manual",
+    ],
+    deps = [
+        "//gateway/protopb",
+        "//orchestrator/protopb",
+        "//speculator/protopb",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials/insecure",
+    ],
+)

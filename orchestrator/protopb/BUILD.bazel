@@ -4,8 +4,8 @@ go_library(
     name = "protopb",
     srcs = [
         "orchestrator.pb.go",
-        "orchestrator_grpc.pb.go",
         "orchestrator.pb.yarpc.go",
+        "orchestrator_grpc.pb.go",
     ],
     importpath = "github.com/uber/submitqueue/orchestrator/protopb",
     visibility = ["//visibility:public"],
