@@ -11,9 +11,9 @@ Submit Queue consists of three main services:
 ## gRPC API
 
 Each service has its own proto definitions and exposes its own gRPC API:
-- **GatewayService**: Gateway API with Ping method (port 8081)
-- **OrchestratorService**: Orchestrator API with Ping method (port 8082)
-- **SpeculatorService**: Speculator API with Ping method (port 8083)
+- **SubmitQueueGateway**: Gateway API with Ping method (port 8081)
+- **SubmitQueueOrchestrator**: Orchestrator API with Ping method (port 8082)
+- **SubmitQueueSpeculator**: Speculator API with Ping method (port 8083)
 
 ### Quick Start
 
@@ -25,8 +25,11 @@ make run-gateway
 # Using Go directly
 go run examples/server/gateway/main.go
 
-# Using Bazel
+# Using Bazel (with direnv)
 bazel run //examples/server/gateway:gateway
+
+# Or without direnv
+./tools/bazel run //examples/server/gateway:gateway
 ```
 
 Test the service:
@@ -38,7 +41,7 @@ make run-client-gateway MESSAGE="hello"
 go run examples/client/gateway/main.go -message "hello"
 
 # Or using grpcurl
-grpcurl -plaintext -d '{"message": "hello"}' localhost:8081 uber.devexp.submitqueue.gateway.GatewayService/Ping
+grpcurl -plaintext -d '{"message": "hello"}' localhost:8081 uber.devexp.submitqueue.gateway.SubmitQueueGateway/Ping
 ```
 
 For detailed instructions, see [examples/README.md](examples/README.md).
@@ -47,19 +50,54 @@ For detailed instructions, see [examples/README.md](examples/README.md).
 
 See [docs/architecture/STRUCTURE.md](docs/architecture/STRUCTURE.md) for a detailed breakdown of the project structure.
 
+## Architecture
+
+The project follows clean architecture principles with clear separation of concerns:
+
+- **Controllers** (`core/controller/`): Pure business logic, independent of transport layer
+  - Only depend on logger, metrics, and protobuf types
+  - Example: `PingController` handles ping business logic
+
+- **Server Adapters** (`examples/server/`): gRPC transport layer
+  - Wrap controllers and implement gRPC service interfaces
+  - Handle protocol-specific concerns (e.g., `UnimplementedServiceServer`)
+
+- **Observability**: Built-in logging and metrics
+  - Structured logging with [Zap](https://github.com/uber-go/zap)
+  - Metrics collection with [Tally](https://github.com/uber-go/tally)
+  - Development servers use human-readable console logging
+
 ## Development
 
 ### Prerequisites
 
-- **Go 1.24 or later** (required)
+- **Go 1.24 or later** (optional, Bazel manages its own Go toolchain)
 - **protoc** and Go plugins (optional, only needed if modifying proto files)
-- **Bazelisk** (optional, for Bazel builds)
-- **grpcurl** (optional, for testing)
+- **grpcurl** (optional, for manual testing)
+- **direnv** (recommended, to automatically load `.envrc`)
 
-Install tools (optional):
+**Note**: The project includes `./tools/bazel` (bazelisk wrapper) and `.bazelversion`, so you don't need to install Bazel or Bazelisk separately.
+
+#### Using direnv (Recommended)
+
+Install direnv and allow the `.envrc` file:
 ```bash
 # macOS
-brew install protobuf bazelisk grpcurl
+brew install direnv
+
+# Add to your shell profile (~/.zshrc or ~/.bashrc)
+eval "$(direnv hook zsh)"  # or bash, fish, etc.
+
+# In the project directory
+direnv allow
+```
+
+With direnv enabled, you can use `bazel` directly instead of `./tools/bazel`.
+
+Install optional tools:
+```bash
+# macOS
+brew install protobuf grpcurl
 
 # Install Go plugins (only if you need to regenerate proto files)
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
@@ -127,16 +165,17 @@ go build -o bin/speculator_client ./examples/client/speculator/
 
 The project uses **Bzlmod** (not WORKSPACE) for dependency management. Bazel version is pinned at 8.4.1 in `.bazelversion`.
 
-```bash
-# Install Bazelisk (recommended)
-brew install bazelisk
+The project includes `./tools/bazel` which automatically downloads the correct Bazel version. If you're using `direnv`, you can simply use `bazel` instead of `./tools/bazel`.
 
-# Build everything
+```bash
+# Build everything (with direnv)
 bazel build //...
+
+# Or without direnv
+./tools/bazel build //...
 
 # Build specific components
 bazel build //gateway/protopb
-bazel build //gateway:gateway
 bazel build //examples/server/gateway:gateway
 bazel build //examples/client/gateway:gateway
 
@@ -146,12 +185,15 @@ bazel run //examples/server/gateway:gateway
 # Run a client
 bazel run //examples/client/gateway:gateway -- -message "hello"
 
-# Or use '.' from the directory
-cd examples/server/gateway && bazel run .
-cd examples/client/gateway && bazel run . -- -message "hello"
+# Or use the Makefile (recommended)
+make build
+make run-gateway
 ```
 
-**Note**: The repository uses Bzlmod for modern dependency management. All generated proto files are committed to the repository.
+**Note**:
+- The repository uses Bzlmod for modern dependency management
+- All generated proto files are committed to the repository
+- With `direnv` enabled, use `bazel` directly; otherwise use `./tools/bazel`
 
 ### Running Services
 
@@ -200,7 +242,8 @@ message PingResponse {
     string message = 1;
     string service_name = 2;
     int64 timestamp = 3;
-    string hostname = 4;  // New field added
+    string hostname = 4;
+    string new_field = 5;  // New field added
 }
 ```
 
@@ -214,8 +257,8 @@ make proto
 # - gateway/protopb/gateway_grpc.pb.go
 # - gateway/protopb/gateway.pb.yarpc.go
 
-# Now update the service implementation
-# Edit gateway/core/controller/ping.go to populate the hostname field
+# Now update the controller implementation
+# Edit gateway/core/controller/ping.go to populate the new field in the PingResponse
 ```
 
 ### Testing
@@ -235,7 +278,7 @@ make proto
 3. **Or use grpcurl:**
    ```bash
    grpcurl -plaintext -d '{"message": "hello"}' \
-     localhost:8081 uber.devexp.submitqueue.gateway.GatewayService/Ping
+     localhost:8081 uber.devexp.submitqueue.gateway.SubmitQueueGateway/Ping
    ```
 
 #### Testing All Services
@@ -273,7 +316,7 @@ make test
 1. **Update the proto file:**
    ```protobuf
    // In gateway/proto/gateway.proto
-   service GatewayService {
+   service SubmitQueueGateway {
        rpc Ping(PingRequest) returns (PingResponse) {}
        rpc NewMethod(NewRequest) returns (NewResponse) {}  // Add new method
    }
@@ -287,17 +330,44 @@ make test
    make proto
    ```
 
-3. **Implement the method in the service:**
+3. **Implement the method in the controller:**
    ```go
-   // In gateway/core/controller/ping.go (or create a new file)
-   func (s *PingServiceImpl) NewMethod(ctx context.Context, req *pb.NewRequest) (*pb.NewResponse, error) {
-       // Implementation here
+   // In gateway/core/controller/ (create a new controller file)
+   type NewController struct {
+       logger       *zap.Logger
+       metricsScope tally.Scope
+   }
+
+   func NewNewController(logger *zap.Logger, scope tally.Scope) *NewController {
+       if logger == nil {
+           logger = zap.NewNop()
+       }
+       if scope == nil {
+           scope = tally.NoopScope
+       }
+       return &NewController{logger: logger, metricsScope: scope}
+   }
+
+   func (c *NewController) NewMethod(ctx context.Context, req *pb.NewRequest) (*pb.NewResponse, error) {
+       // Business logic here
+       c.logger.Info("new method called")
+       c.metricsScope.Counter("new_method_total").Inc(1)
+       // ...
    }
    ```
 
-4. **Update clients to call the new method**
+4. **Create server wrapper in example:**
+   ```go
+   // In examples/server/gateway/main.go
+   // Add method delegation to GatewayServer struct:
+   func (s *GatewayServer) NewMethod(ctx context.Context, req *pb.NewRequest) (*pb.NewResponse, error) {
+       return s.newController.NewMethod(ctx, req)
+   }
+   ```
 
-5. **Rebuild and test:**
+5. **Update clients to call the new method**
+
+6. **Rebuild and test:**
    ```bash
    make build
    ```
@@ -333,5 +403,6 @@ bazel clean
 
 **Bazel build issues:**
 - Bazel version is pinned to 8.4.1 in `.bazelversion`
-- Use `./tools/bazel` wrapper or install bazelisk
-- Try `bazel shutdown` and rebuild
+- With `direnv`, you can use `bazel` directly; otherwise use `./tools/bazel`
+- Try `bazel shutdown` (or `./tools/bazel shutdown`) and rebuild
+- The wrapper automatically downloads the correct Bazel version

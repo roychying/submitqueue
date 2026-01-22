@@ -4,8 +4,8 @@ go_library(
     name = "protopb",
     srcs = [
         "gateway.pb.go",
-        "gateway_grpc.pb.go",
         "gateway.pb.yarpc.go",
+        "gateway_grpc.pb.go",
     ],
     importpath = "github.com/uber/submitqueue/gateway/protopb",
     visibility = ["//visibility:public"],
