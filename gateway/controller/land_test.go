@@ -78,6 +78,10 @@ func (m *mockBatchStore) UpdateState(ctx context.Context, id string, version int
 	return nil
 }
 
+func (m *mockBatchStore) GetByQueueAndStates(ctx context.Context, queue string, states []entity.BatchState) ([]entity.Batch, error) {
+	return nil, nil
+}
+
 type mockBatchDependentStore struct {
 	createFunc func(ctx context.Context, batchDependent entity.BatchDependent) error
 	getFunc    func(ctx context.Context, batchID string) (entity.BatchDependent, error)

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/go-sql-driver/mysql"
 
@@ -108,4 +109,51 @@ func (s *batchStore) UpdateState(ctx context.Context, id string, version int32, 
 	}
 
 	return nil
+}
+
+// GetByQueueAndStates retrieves all batches that belong to the given queue and are in the given states.
+func (s *batchStore) GetByQueueAndStates(ctx context.Context, queue string, states []entity.BatchState) ([]entity.Batch, error) {
+	if len(states) == 0 {
+		return nil, nil
+	}
+
+	query := "SELECT id, queue, contains, dependencies, state, version FROM batch WHERE queue = ? AND state IN (?" + strings.Repeat(", ?", len(states)-1) + ")"
+
+	args := make([]any, 1+len(states))
+	args[0] = queue
+	for i, state := range states {
+		args[i+1] = state
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query batches by queue=%q states=%v from the database: %w", queue, states, err)
+	}
+	defer rows.Close()
+
+	var results []entity.Batch
+	for rows.Next() {
+		var batch entity.Batch
+		var containsJSON []byte
+		var dependenciesJSON []byte
+
+		if err := rows.Scan(&batch.ID, &batch.Queue, &containsJSON, &dependenciesJSON, &batch.State, &batch.Version); err != nil {
+			return nil, fmt.Errorf("failed to scan batch entity by queue=%q states=%v from the database: %w", queue, states, err)
+		}
+
+		if err := json.Unmarshal(containsJSON, &batch.Contains); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal contains for batch entity id=%s from the database: %w", batch.ID, err)
+		}
+
+		if err := json.Unmarshal(dependenciesJSON, &batch.Dependencies); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal dependencies for batch entity id=%s from the database: %w", batch.ID, err)
+		}
+
+		results = append(results, batch)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate batches by queue=%q states=%v from the database: %w", queue, states, err)
+	}
+
+	return results, nil
 }
