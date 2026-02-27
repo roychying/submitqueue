@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/uber-go/tally/v4"
 	"github.com/uber/submitqueue/core/consumer"
+	"github.com/uber/submitqueue/core/errs"
 	"github.com/uber/submitqueue/entity"
 	"github.com/uber/submitqueue/entity/queue"
 	countermock "github.com/uber/submitqueue/extension/counter/mock"
@@ -114,7 +115,7 @@ func TestController_Process_InvalidJSON(t *testing.T) {
 	err := controller.Process(context.Background(), delivery)
 
 	require.Error(t, err)
-	assert.True(t, consumer.IsNonRetryable(err))
+	assert.False(t, errs.IsRetryable(err))
 }
 
 func TestController_Process_PublishFailure(t *testing.T) {
