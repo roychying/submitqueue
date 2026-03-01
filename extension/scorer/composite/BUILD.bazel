@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "composite",
+    srcs = ["scorer.go"],
+    importpath = "github.com/uber/submitqueue/extension/scorer/composite",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//entity",
+        "//extension/scorer",
+    ],
+)
+
+go_test(
+    name = "composite_test",
+    srcs = ["scorer_test.go"],
+    embed = [":composite"],
+    deps = [
+        "//entity",
+        "//extension/scorer",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+    ],
+)
