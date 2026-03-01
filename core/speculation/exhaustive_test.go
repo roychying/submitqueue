@@ -10,7 +10,7 @@ import (
 	"github.com/uber/submitqueue/entity"
 )
 
-func TestGenerateTree(t *testing.T) {
+func TestgenerateTree(t *testing.T) {
 	tests := []struct {
 		name          string
 		currentID     string
@@ -64,7 +64,7 @@ func TestGenerateTree(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tree, err := GenerateTree(tt.currentID, tt.dependencyIDs)
+			tree, err := generateTree(tt.currentID, tt.dependencyIDs)
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.currentID, tree.BatchID)
@@ -77,8 +77,8 @@ func TestGenerateTree(t *testing.T) {
 	}
 }
 
-func TestGenerateTree_Ordering(t *testing.T) {
-	tree, err := GenerateTree("B5", []string{"B1", "B2", "B3", "B4"})
+func TestgenerateTree_Ordering(t *testing.T) {
+	tree, err := generateTree("B5", []string{"B1", "B2", "B3", "B4"})
 	require.NoError(t, err)
 
 	require.Len(t, tree.Speculations, 16)
@@ -90,8 +90,8 @@ func TestGenerateTree_Ordering(t *testing.T) {
 	}
 }
 
-func TestGenerateTree_AllActionsSchedule(t *testing.T) {
-	tree, err := GenerateTree("B3", []string{"B1", "B2"})
+func TestgenerateTree_AllActionsSchedule(t *testing.T) {
+	tree, err := generateTree("B3", []string{"B1", "B2"})
 	require.NoError(t, err)
 
 	for i, spec := range tree.Speculations {
@@ -100,8 +100,8 @@ func TestGenerateTree_AllActionsSchedule(t *testing.T) {
 	}
 }
 
-func TestGenerateTree_AllScoresZero(t *testing.T) {
-	tree, err := GenerateTree("B3", []string{"B1", "B2"})
+func TestgenerateTree_AllScoresZero(t *testing.T) {
+	tree, err := generateTree("B3", []string{"B1", "B2"})
 	require.NoError(t, err)
 
 	for i, spec := range tree.Speculations {
@@ -109,27 +109,27 @@ func TestGenerateTree_AllScoresZero(t *testing.T) {
 	}
 }
 
-func TestGenerateTree_InputImmutability(t *testing.T) {
+func TestgenerateTree_InputImmutability(t *testing.T) {
 	deps := []string{"B1", "B2", "B3"}
 	original := make([]string, len(deps))
 	copy(original, deps)
 
-	_, err := GenerateTree("B4", deps)
+	_, err := generateTree("B4", deps)
 	require.NoError(t, err)
 
 	assert.Equal(t, original, deps, "input dependency slice should not be mutated")
 }
 
-func TestGenerateTree_EmptyDependencySlice(t *testing.T) {
-	tree, err := GenerateTree("B1", []string{})
+func TestgenerateTree_EmptyDependencySlice(t *testing.T) {
+	tree, err := generateTree("B1", []string{})
 	require.NoError(t, err)
 
 	require.Len(t, tree.Speculations, 1)
 	assert.Equal(t, entity.SpeculationPath{Base: []string{}, Head: "B1"}, tree.Speculations[0].Path)
 }
 
-func TestGenerateTree_HeadAlwaysCurrentID(t *testing.T) {
-	tree, err := GenerateTree("B3", []string{"B1", "B2"})
+func TestgenerateTree_HeadAlwaysCurrentID(t *testing.T) {
+	tree, err := generateTree("B3", []string{"B1", "B2"})
 	require.NoError(t, err)
 
 	for i, spec := range tree.Speculations {
@@ -137,25 +137,25 @@ func TestGenerateTree_HeadAlwaysCurrentID(t *testing.T) {
 	}
 }
 
-func TestGenerateTree_ExceedsMaxDependencies(t *testing.T) {
+func TestgenerateTree_ExceedsMaxDependencies(t *testing.T) {
 	deps := make([]string, MaxDependencies+1)
 	for i := range deps {
 		deps[i] = fmt.Sprintf("B%d", i+1)
 	}
 
-	_, err := GenerateTree("current", deps)
+	_, err := generateTree("current", deps)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "exceeds maximum")
 }
 
-func TestGenerateTree_AtMaxDependencies(t *testing.T) {
+func TestgenerateTree_AtMaxDependencies(t *testing.T) {
 	deps := make([]string, MaxDependencies)
 	for i := range deps {
 		deps[i] = fmt.Sprintf("B%d", i+1)
 	}
 
-	tree, err := GenerateTree("current", deps)
+	tree, err := generateTree("current", deps)
 
 	require.NoError(t, err)
 	assert.Len(t, tree.Speculations, 1<<MaxDependencies)

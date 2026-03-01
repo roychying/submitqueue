@@ -155,7 +155,7 @@ func run() error {
 	mc := newMergeChecker(logger, scope)
 
 	// Create speculation strategy (top-K with default probabilities).
-	strategy := speculation.NewTopKStrategy(nil, speculation.DefaultK)
+	strategy := speculation.NewTopKStrategy(nil, speculation.DefaultK, 0)
 
 	// Register controllers
 	if err := registerControllers(c, logger.Sugar(), scope, registry, mc, cnt, strategy); err != nil {

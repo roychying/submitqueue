@@ -30,7 +30,7 @@ import (
 // predecessors. A limit of 10 (1,024 paths) is generous for real workloads.
 const MaxDependencies = 10
 
-// GenerateTree takes the current batch ID and its ordered dependencies (sorted by
+// generateTree takes the current batch ID and its ordered dependencies (sorted by
 // arrival time), and generates a SpeculationTree for the current batch containing
 // all possible speculation paths (power set of predecessors).
 //
@@ -43,7 +43,7 @@ const MaxDependencies = 10
 // All paths are initialized with Action = SpeculationPathActionSchedule.
 //
 // Returns an error if len(dependencyIDs) exceeds MaxDependencies.
-func GenerateTree(currentID string, dependencyIDs []string) (entity.SpeculationTree, error) {
+func generateTree(currentID string, dependencyIDs []string) (entity.SpeculationTree, error) {
 	if len(dependencyIDs) > MaxDependencies {
 		return entity.SpeculationTree{}, fmt.Errorf(
 			"dependency count %d exceeds maximum %d", len(dependencyIDs), MaxDependencies,
@@ -154,7 +154,7 @@ func (s *ExhaustiveStrategy) Generate(_ context.Context, batchID string, depende
 		)
 	}
 
-	tree, err := GenerateTree(batchID, dependencyIDs)
+	tree, err := generateTree(batchID, dependencyIDs)
 	if err != nil {
 		return entity.SpeculationTree{}, fmt.Errorf("exhaustive generation failed: %w", err)
 	}

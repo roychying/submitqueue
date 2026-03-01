@@ -12,7 +12,6 @@ go_library(
         "shadow_strategy.go",
         "speculator.go",
         "strategy.go",
-        "topk.go",
         "topk_strategy.go",
     ],
     importpath = "github.com/uber/submitqueue/core/speculation",
