@@ -10,106 +10,98 @@ import (
 
 func TestNewClient(t *testing.T) {
 	httpClient := &http.Client{Timeout: 10 * time.Second}
-	graphQLURL := "https://api.github.com/graphql"
+	baseURL := "https://api.github.com"
 
-	client := NewClient(httpClient, graphQLURL)
+	client := NewClient(httpClient, baseURL)
 
 	assert.Equal(t, httpClient, client.HTTPClient())
-	assert.Equal(t, graphQLURL, client.GraphQLURL())
-}
-
-func TestNewAuthenticatedClient(t *testing.T) {
-	token := "ghp_test123"
-	baseURL := "https://api.github.com"
-	timeout := 30 * time.Second
-
-	client := NewAuthenticatedClient(token, baseURL, timeout)
-
-	assert.NotNil(t, client.HTTPClient())
+	assert.Equal(t, baseURL, client.BaseURL())
 	assert.Equal(t, "https://api.github.com/graphql", client.GraphQLURL())
-	assert.Equal(t, timeout, client.HTTPClient().Timeout)
-
-	// Verify bearer transport is configured
-	transport, ok := client.HTTPClient().Transport.(*bearerTransport)
-	assert.True(t, ok, "transport should be bearerTransport")
-	assert.Equal(t, token, transport.token)
-	assert.Equal(t, http.DefaultTransport, transport.base)
 }
 
-func TestNewAuthenticatedClient_EmptyToken(t *testing.T) {
-	token := ""
-	baseURL := "https://api.github.com"
-	timeout := 30 * time.Second
-
-	client := NewAuthenticatedClient(token, baseURL, timeout)
-
-	assert.NotNil(t, client.HTTPClient())
-	assert.Equal(t, "https://api.github.com/graphql", client.GraphQLURL())
-
-	// Verify transport is NOT bearerTransport when token is empty
-	assert.Equal(t, http.DefaultTransport, client.HTTPClient().Transport)
-}
-
-func TestNewAuthenticatedClient_GHES(t *testing.T) {
-	token := "ghp_enterprise"
-	baseURL := "https://ghe.company.com/api"
-	timeout := 15 * time.Second
-
-	client := NewAuthenticatedClient(token, baseURL, timeout)
-
-	assert.NotNil(t, client.HTTPClient())
-	assert.Equal(t, "https://ghe.company.com/api/graphql", client.GraphQLURL())
-	assert.Equal(t, timeout, client.HTTPClient().Timeout)
-}
-
-func TestBearerTransport_AddsAuthHeader(t *testing.T) {
-	token := "ghp_test_token"
-	mockBase := &mockRoundTripper{
-		roundTripFunc: func(req *http.Request) (*http.Response, error) {
-			// Verify the Authorization header was added
-			assert.Equal(t, "Bearer ghp_test_token", req.Header.Get("Authorization"))
-			return &http.Response{
-				StatusCode: http.StatusOK,
-			}, nil
+func TestClient_BaseURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		want    string
+	}{
+		{
+			name:    "GitHub.com",
+			baseURL: "https://api.github.com",
+			want:    "https://api.github.com",
+		},
+		{
+			name:    "GitHub Enterprise Server",
+			baseURL: "https://ghe.company.com/api",
+			want:    "https://ghe.company.com/api",
 		},
 	}
 
-	transport := &bearerTransport{
-		token: token,
-		base:  mockBase,
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewClient(&http.Client{}, tt.baseURL)
+			assert.Equal(t, tt.want, client.BaseURL())
+		})
 	}
-
-	req, err := http.NewRequest(http.MethodGet, "https://api.github.com/test", nil)
-	assert.NoError(t, err)
-
-	_, err = transport.RoundTrip(req)
-	assert.NoError(t, err)
 }
 
-func TestBearerTransport_ClonesRequest(t *testing.T) {
-	token := "ghp_test_token"
-	originalReq, err := http.NewRequest(http.MethodGet, "https://api.github.com/test", nil)
-	assert.NoError(t, err)
-
-	mockBase := &mockRoundTripper{
-		roundTripFunc: func(req *http.Request) (*http.Response, error) {
-			// Verify the request was cloned (different pointer)
-			assert.NotSame(t, originalReq, req, "request should be cloned")
-			assert.Equal(t, originalReq.URL.String(), req.URL.String())
-			return &http.Response{
-				StatusCode: http.StatusOK,
-			}, nil
+func TestClient_GraphQLURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		want    string
+	}{
+		{
+			name:    "GitHub.com",
+			baseURL: "https://api.github.com",
+			want:    "https://api.github.com/graphql",
+		},
+		{
+			name:    "GitHub Enterprise Server",
+			baseURL: "https://ghe.company.com/api",
+			want:    "https://ghe.company.com/api/graphql",
 		},
 	}
 
-	transport := &bearerTransport{
-		token: token,
-		base:  mockBase,
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewClient(&http.Client{}, tt.baseURL)
+			assert.Equal(t, tt.want, client.GraphQLURL())
+		})
+	}
+}
+
+func TestClient_RESTURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		baseURL string
+		path    string
+		want    string
+	}{
+		{
+			name:    "GitHub.com - pull request",
+			baseURL: "https://api.github.com",
+			path:    "/repos/uber/submitqueue/pulls/123",
+			want:    "https://api.github.com/repos/uber/submitqueue/pulls/123",
+		},
+		{
+			name:    "GitHub Enterprise Server - pull request",
+			baseURL: "https://ghe.company.com/api",
+			path:    "/repos/uber/submitqueue/pulls/456",
+			want:    "https://ghe.company.com/api/repos/uber/submitqueue/pulls/456",
+		},
+		{
+			name:    "repos endpoint",
+			baseURL: "https://api.github.com",
+			path:    "/repos/uber/submitqueue",
+			want:    "https://api.github.com/repos/uber/submitqueue",
+		},
 	}
 
-	_, err = transport.RoundTrip(originalReq)
-	assert.NoError(t, err)
-
-	// Verify original request is unchanged
-	assert.Empty(t, originalReq.Header.Get("Authorization"), "original request should not be modified")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := NewClient(&http.Client{}, tt.baseURL)
+			assert.Equal(t, tt.want, client.RESTURL(tt.path))
+		})
+	}
 }

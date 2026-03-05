@@ -505,6 +505,36 @@ func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope t
 	return nil
 }
 
+// getEnv returns environment variable value or default if not set.
+func getEnv(key, defaultVal string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return defaultVal
+}
+
+// parseTimeout parses a duration from environment variable with fallback to default.
+// Returns defaultVal if envVal is empty or cannot be parsed.
+func parseTimeout(envVal string, defaultVal time.Duration) time.Duration {
+	if envVal == "" {
+		return defaultVal
+	}
+	if d, err := time.ParseDuration(envVal); err == nil {
+		return d
+	}
+	return defaultVal
+}
+
+// buildGitHubHTTPClient creates an http.Client configured for GitHub API calls.
+// Configures timeout and optional bearer token authentication.
+func buildGitHubHTTPClient(token string, timeout time.Duration) *http.Client {
+	httpClient := &http.Client{Timeout: timeout}
+	if token != "" {
+		httpClient.Transport = &bearerTransport{token: token}
+	}
+	return httpClient
+}
+
 // newMergeChecker creates a MergeChecker for GitHub (github.com).
 // Configured via GITHUB_TOKEN and GITHUB_GRAPHQL_URL environment variables.
 func newMergeChecker(logger *zap.Logger, scope tally.Scope) mergechecker.MergeChecker {
@@ -531,16 +561,21 @@ func newMergeChecker(logger *zap.Logger, scope tally.Scope) mergechecker.MergeCh
 }
 
 // newChangeProvider creates a ChangeProvider for GitHub (github.com).
-// Configured via GITHUB_BASE_URL and GITHUB_TOKEN environment variables.
+// Configured via GITHUB_BASE_URL, GITHUB_TOKEN, and GITHUB_TIMEOUT environment variables.
+// Uses pure dependency injection - creates http.Client with auth configured in Transport.
 func newChangeProvider(logger *zap.Logger, scope tally.Scope) changeprovider.ChangeProvider {
-	baseURL := os.Getenv("GITHUB_BASE_URL")
-	if baseURL == "" {
-		baseURL = "https://api.github.com"
-	}
-
+	// 1. Read configuration from environment
+	baseURL := getEnv("GITHUB_BASE_URL", "https://api.github.com")
 	token := os.Getenv("GITHUB_TOKEN")
+	timeout := parseTimeout(os.Getenv("GITHUB_TIMEOUT"), 30*time.Second)
 
-	client := githubprovider.NewAuthenticatedClient(token, baseURL, githubprovider.DefaultTimeout)
+	// 2. Build HTTP client with caller-controlled config (auth + timeout)
+	httpClient := buildGitHubHTTPClient(token, timeout)
+
+	// 3. Create GitHub client wrapper with baseURL
+	client := githubprovider.NewClient(httpClient, baseURL)
+
+	// 4. Inject into provider
 	return githubprovider.NewProvider(client, logger.Sugar(), scope.SubScope("changeprovider"))
 }
 

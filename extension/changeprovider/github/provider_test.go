@@ -84,7 +84,7 @@ func TestProvider_Get_Success(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -193,7 +193,7 @@ func TestProvider_Get_Pagination(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -215,7 +215,7 @@ func TestProvider_Get_Pagination(t *testing.T) {
 }
 
 func TestProvider_Get_InvalidURI(t *testing.T) {
-	client := NewClient(&http.Client{}, "https://api.github.test/graphql")
+	client := NewClient(&http.Client{}, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -235,7 +235,7 @@ func TestProvider_Get_HTTPError(t *testing.T) {
 		return nil, assert.AnError
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -259,7 +259,7 @@ func TestProvider_Get_APIError404(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -292,7 +292,7 @@ func TestProvider_Get_GraphQLError(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -316,7 +316,7 @@ func TestProvider_Get_InvalidJSON(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -333,7 +333,7 @@ func TestProvider_Get_InvalidJSON(t *testing.T) {
 
 func TestNewProvider(t *testing.T) {
 	httpClient := &http.Client{Timeout: 30 * time.Second}
-	client := NewClient(httpClient, "https://api.github.com/graphql")
+	client := NewClient(httpClient, "https://api.github.com")
 
 	provider := NewProvider(client, zaptest.NewLogger(t).Sugar(), tally.NoopScope)
 
@@ -417,7 +417,7 @@ func TestProvider_Get_MultiplePRs(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -451,7 +451,7 @@ func TestProvider_Get_MultiplePRs(t *testing.T) {
 }
 
 func TestProvider_Get_CrossRepoStack(t *testing.T) {
-	client := NewClient(&http.Client{}, "https://api.github.test/graphql")
+	client := NewClient(&http.Client{}, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -472,7 +472,7 @@ func TestProvider_Get_CrossRepoStack(t *testing.T) {
 }
 
 func TestProvider_Get_MixedProviderStack(t *testing.T) {
-	client := NewClient(&http.Client{}, "https://api.github.test/graphql")
+	client := NewClient(&http.Client{}, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -533,7 +533,7 @@ func TestProvider_Get_StalePR(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
@@ -637,7 +637,7 @@ func TestProvider_Get_PartialSuccess(t *testing.T) {
 		}, nil
 	})
 
-	client := NewClient(mockClient, "https://api.github.test/graphql")
+	client := NewClient(mockClient, "https://api.github.test")
 	provider := NewProvider(
 		client,
 		zaptest.NewLogger(t).Sugar(),
