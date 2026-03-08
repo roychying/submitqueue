@@ -21,7 +21,6 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zaptest"
 )
 
 const (
@@ -35,7 +34,7 @@ func setupoffsetStoreTest(t *testing.T) (*sql.DB, sqlmock.Sqlmock, offsetStore) 
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 
-	store := newOffsetStore(db, zaptest.NewLogger(t), testMetrics())
+	store := newOffsetStore(db, testMetrics())
 
 	return db, mock, store
 }
@@ -126,61 +125,4 @@ func TestoffsetStore_UpdateAckedOffset(t *testing.T) {
 	err := store.UpdateAckedOffset(ctx, topic, partitionKey, offset, testConsumerGroup)
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestoffsetStore_AckMessage(t *testing.T) {
-	tests := []struct {
-		name    string
-		setup   func(mock sqlmock.Sqlmock)
-		wantErr bool
-	}{
-		{
-			name: "successful ack",
-			setup: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				mock.ExpectExec("DELETE FROM queue_messages").
-					WithArgs("test_topic", "part1", "msg1").
-					WillReturnResult(sqlmock.NewResult(0, 1))
-				mock.ExpectExec("INSERT INTO queue_offsets").
-					WithArgs(testConsumerGroup, "test_topic", "part1", int64(100), sqlmock.AnyArg()).
-					WillReturnResult(sqlmock.NewResult(1, 1))
-				mock.ExpectCommit()
-			},
-			wantErr: false,
-		},
-		{
-			name: "transaction error",
-			setup: func(mock sqlmock.Sqlmock) {
-				mock.ExpectBegin()
-				mock.ExpectExec("DELETE FROM queue_messages").
-					WithArgs("test_topic", "part1", "msg1").
-					WillReturnError(sql.ErrConnDone)
-				mock.ExpectRollback()
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, mock, store := setupoffsetStoreTest(t)
-			defer db.Close()
-
-			ctx := context.Background()
-			topic := "test_topic"
-			partitionKey := "part1"
-			messageID := "msg1"
-			offset := int64(100)
-
-			tt.setup(mock)
-
-			err := store.AckMessage(ctx, topic, partitionKey, messageID, offset, testConsumerGroup, nil)
-			if tt.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-			require.NoError(t, mock.ExpectationsWereMet())
-		})
-	}
 }
