@@ -8,10 +8,9 @@ import (
 
 // validateChangeConsistency validates that all changeIDs in the stack are consistent.
 // Stacked changes must have the same change provider (scheme), org, and repo.
-// Returns the org and repo if valid, or an error if any change is inconsistent.
 func validateChangeConsistency(
 	changeIDs []entitygithub.ChangeID,
-) (string, string, error) {
+) error {
 	expectedScheme := changeIDs[0].Scheme
 	expectedOrg := changeIDs[0].Org
 	expectedRepo := changeIDs[0].Repo
@@ -19,18 +18,18 @@ func validateChangeConsistency(
 	for _, cid := range changeIDs {
 		// Validate same change provider (scheme)
 		if cid.Scheme != expectedScheme {
-			return "", "", fmt.Errorf("stacked changes must use same change provider: expected %s, got %s for PR #%d",
+			return fmt.Errorf("stacked changes must use same change provider: expected %s, got %s for PR #%d",
 				expectedScheme, cid.Scheme, cid.PRNumber)
 		}
 
 		// Validate same org and repo
 		if cid.Org != expectedOrg || cid.Repo != expectedRepo {
-			return "", "", fmt.Errorf("stacked changes must be from same repository: expected %s/%s, got %s/%s for PR #%d",
+			return fmt.Errorf("stacked changes must be from same org/repository: expected %s/%s, got %s/%s for PR #%d",
 				expectedOrg, expectedRepo, cid.Org, cid.Repo, cid.PRNumber)
 		}
 	}
 
-	return expectedOrg, expectedRepo, nil
+	return nil
 }
 
 // validatePRStaleness validates that the PR hasn't changed since submission.

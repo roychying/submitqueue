@@ -572,11 +572,12 @@ func newChangeProvider(logger *zap.Logger, scope tally.Scope) changeprovider.Cha
 	// 2. Build HTTP client with caller-controlled config (auth + timeout)
 	httpClient := buildGitHubHTTPClient(token, timeout)
 
-	// 3. Create GitHub client wrapper with baseURL
-	client := githubprovider.NewClient(httpClient, baseURL)
-
-	// 4. Inject into provider
-	return githubprovider.NewProvider(client, logger.Sugar(), scope.SubScope("changeprovider"))
+	// 3. Inject into provider
+	return githubprovider.NewProvider(githubprovider.Params{
+		Client:       githubprovider.NewClient(httpClient, baseURL),
+		Logger:       logger.Sugar(),
+		MetricsScope: scope.SubScope("changeprovider"),
+	})
 }
 
 // bearerTransport is an http.RoundTripper that adds a Bearer token to requests.

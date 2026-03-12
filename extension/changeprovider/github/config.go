@@ -15,20 +15,8 @@ type Client struct {
 // The caller is responsible for configuring authentication in the HTTP client's Transport.
 //
 // Parameters:
-//   - httpClient: Configured HTTP client (with auth, timeout, transport, etc.)
-//   - baseURL: GitHub instance base URL (e.g., "https://api.github.com" or "https://ghe.company.com/api")
-//
-// Example with Bearer token auth:
-//
-//	transport := &bearerTransport{token: "ghp_xxx", base: http.DefaultTransport}
-//	httpClient := &http.Client{Transport: transport, Timeout: 30 * time.Second}
-//	client := github.NewClient(httpClient, "https://api.github.com")
-//
-// Example with OAuth2:
-//
-//	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: "ghp_xxx"})
-//	httpClient := oauth2.NewClient(ctx, tokenSource)
-//	client := github.NewClient(httpClient, "https://api.github.com")
+// - httpClient: Configured HTTP client (with auth, timeout, transport, etc.)
+// - baseURL: GitHub instance base URL (e.g., "https://api.github.com" or "https://ghe.company.com/api")
 func NewClient(httpClient *http.Client, baseURL string) *Client {
 	return &Client{
 		httpClient: httpClient,

@@ -7,9 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-
-	"github.com/uber-go/tally/v4"
-	"go.uber.org/zap"
 )
 
 // pullRequestQuery is the GraphQL query to fetch pull request information including files, author, and head SHA.
@@ -122,8 +119,6 @@ func doGraphQLRequest(
 	ctx context.Context,
 	bodyBytes []byte,
 	client *Client,
-	org, repo string,
-	metrics tally.Scope,
 ) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.GraphQLURL(), bytes.NewReader(bodyBytes))
 	if err != nil {
@@ -134,11 +129,6 @@ func doGraphQLRequest(
 
 	resp, err := client.HTTPClient().Do(req)
 	if err != nil {
-		metrics.Tagged(map[string]string{
-			"org":        org,
-			"repo":       repo,
-			"error_type": "http_error",
-		}).Counter("get_errors").Inc(1)
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 
@@ -148,50 +138,18 @@ func doGraphQLRequest(
 // parseGraphQLResponse parses and validates a GraphQL response.
 func parseGraphQLResponse(
 	resp *http.Response,
-	org, repo string,
-	prNumber int,
-	logger *zap.SugaredLogger,
-	metrics tally.Scope,
 ) (*pullRequestData, error) {
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		logger.Errorw("GitHub API error",
-			"status", resp.StatusCode,
-			"org", org,
-			"repo", repo,
-			"pr", prNumber,
-			"response", string(body),
-		)
-		metrics.Tagged(map[string]string{
-			"org":        org,
-			"repo":       repo,
-			"error_type": "api_error",
-		}).Counter("get_errors").Inc(1)
 		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var gqlResp graphqlResponse
 	if err := json.NewDecoder(resp.Body).Decode(&gqlResp); err != nil {
-		metrics.Tagged(map[string]string{
-			"org":        org,
-			"repo":       repo,
-			"error_type": "decode_error",
-		}).Counter("get_errors").Inc(1)
 		return nil, fmt.Errorf("failed to decode GraphQL response: %w", err)
 	}
 
 	if len(gqlResp.Errors) > 0 {
-		logger.Errorw("GraphQL errors",
-			"org", org,
-			"repo", repo,
-			"pr", prNumber,
-			"errors", gqlResp.Errors,
-		)
-		metrics.Tagged(map[string]string{
-			"org":        org,
-			"repo":       repo,
-			"error_type": "graphql_error",
-		}).Counter("get_errors").Inc(1)
 		return nil, fmt.Errorf("GraphQL errors: %+v", gqlResp.Errors)
 	}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/uber-go/tally/v4"
 	"github.com/uber/submitqueue/core/consumer"
 	"github.com/uber/submitqueue/core/errs"
+	coremetrics "github.com/uber/submitqueue/core/metrics"
 	"github.com/uber/submitqueue/entity"
 	entityqueue "github.com/uber/submitqueue/entity/queue"
 	"github.com/uber/submitqueue/extension/changeprovider"
@@ -73,22 +74,23 @@ func NewController(
 // Process processes a validate delivery from the queue.
 // Deserializes the request and publishes to the batch topic.
 // Returns nil to ack (success), or error to nack (retry).
-func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) error {
-	c.metricsScope.Counter("received").Inc(1)
+func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) (retErr error) {
+	op := coremetrics.Begin(c.metricsScope, "process")
+	defer func() { op.Complete(retErr) }()
 
 	msg := delivery.Message()
 
 	// Deserialize request ID from payload
 	rid, err := entity.RequestIDFromBytes(msg.Payload)
 	if err != nil {
-		c.metricsScope.Counter("deserialize_errors").Inc(1)
+		coremetrics.NamedCounter(c.metricsScope, "process", "deserialize_errors", 1)
 		return fmt.Errorf("failed to deserialize request ID: %w", err)
 	}
 
 	// Fetch request from storage
 	request, err := c.store.GetRequestStore().Get(ctx, rid.ID)
 	if err != nil {
-		c.metricsScope.Counter("storage_errors").Inc(1)
+		coremetrics.NamedCounter(c.metricsScope, "process", "storage_errors", 1)
 		return fmt.Errorf("failed to get request %s: %w", rid.ID, err)
 	}
 
@@ -104,7 +106,7 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) er
 	// Merge conflict check
 	mergeResult, err := c.mergeChecker.Check(ctx, request.Queue, request.Change)
 	if err != nil {
-		c.metricsScope.Counter("merge_check_errors").Inc(1)
+		coremetrics.NamedCounter(c.metricsScope, "process", "merge_check_errors", 1)
 		return fmt.Errorf("merge check failed: %w", err)
 	}
 	if !mergeResult.Mergeable {
@@ -113,7 +115,7 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) er
 			"queue", request.Queue,
 			"reason", mergeResult.Reason,
 		)
-		c.metricsScope.Counter("not_mergeable").Inc(1)
+		coremetrics.NamedCounter(c.metricsScope, "process", "not_mergeable", 1)
 		return errs.NewUserError(fmt.Errorf("request %s is not mergeable: %s", request.ID, mergeResult.Reason))
 	}
 
@@ -125,7 +127,7 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) er
 			"change_uris", request.Change.URIs,
 			"error", err,
 		)
-		c.metricsScope.Counter("change_provider_errors").Inc(1)
+		coremetrics.NamedCounter(c.metricsScope, "process", "change_provider_errors", 1)
 		return fmt.Errorf("failed to fetch change information: %w", err)
 	}
 
@@ -137,7 +139,7 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) er
 
 	// Publish to batch topic
 	if err := c.publish(ctx, consumer.TopicKeyBatch, request.ID, request.Queue); err != nil {
-		c.metricsScope.Counter("publish_errors").Inc(1)
+		coremetrics.NamedCounter(c.metricsScope, "process", "publish_errors", 1)
 		return fmt.Errorf("failed to publish to batch: %w", err)
 	}
 
@@ -145,8 +147,6 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) er
 		"request_id", request.ID,
 		"topic_key", consumer.TopicKeyBatch,
 	)
-
-	c.metricsScope.Counter("processed").Inc(1)
 
 	return nil // Success - message will be acked
 }

@@ -4,59 +4,54 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/uber-go/tally/v4"
 	"go.uber.org/zap"
 
+	coremetrics "github.com/uber/submitqueue/core/metrics"
 	"github.com/uber/submitqueue/entity"
 	entitygithub "github.com/uber/submitqueue/entity/github"
 	"github.com/uber/submitqueue/extension/changeprovider"
 )
 
+// Params holds the dependencies for the GitHub ChangeProvider.
+type Params struct {
+	// Client is a pre-configured GitHub API client (encapsulates HTTP client and GraphQL URL).
+	// Auth is the caller's responsibility via HTTP transport/round-tripper.
+	Client *Client
+	// Logger is the structured logger.
+	Logger *zap.SugaredLogger
+	// MetricsScope is the metrics scope for instrumentation.
+	MetricsScope tally.Scope
+}
+
 // provider implements the ChangeProvider interface for GitHub.
 type provider struct {
-	client  *Client
-	logger  *zap.SugaredLogger
-	metrics tally.Scope
+	client       *Client
+	logger       *zap.SugaredLogger
+	metricsScope tally.Scope
 }
 
 // NewProvider creates a new GitHub ChangeProvider.
-// The caller is responsible for providing a fully-configured Client with authentication.
-// Use NewAuthenticatedClient helper to create a client with bearer token auth.
-//
-// Parameters:
-//   - client: Pre-configured GitHub API client (encapsulates HTTP client and GraphQL URL)
-//   - logger: Structured logger
-//   - metrics: Metrics scope
-func NewProvider(
-	client *Client,
-	logger *zap.SugaredLogger,
-	metrics tally.Scope,
-) changeprovider.ChangeProvider {
+func NewProvider(params Params) changeprovider.ChangeProvider {
 	return &provider{
-		client:  client,
-		logger:  logger.Named("github_changeprovider"),
-		metrics: metrics.SubScope("github_changeprovider"),
+		client:       params.Client,
+		logger:       params.Logger.Named("github_changeprovider"),
+		metricsScope: params.MetricsScope.SubScope("github_changeprovider"),
 	}
 }
 
 // Get retrieves change information from GitHub for the provided Change.
 // Returns one ChangeInfo per URI (one per PR in stacked changes).
-// TODO add error codes for user errors (non-retryable) vs system errors.
-func (p *provider) Get(ctx context.Context, change entity.Change) ([]changeprovider.ChangeInfo, error) {
-	p.metrics.Counter("get_change_info_started").Inc(1)
-	startTime := time.Now()
-	defer func() {
-		p.metrics.Timer("get_change_info_latency").Record(time.Since(startTime))
-	}()
+func (p *provider) Get(ctx context.Context, change entity.Change) (_ []changeprovider.ChangeInfo, retErr error) {
+	op := coremetrics.Begin(p.metricsScope, "get")
+	defer func() { op.Complete(retErr) }()
 
 	// Parse all change IDs
 	changeIDs := make([]entitygithub.ChangeID, 0, len(change.URIs))
 	for _, uri := range change.URIs {
 		parsed, err := entitygithub.ParseChangeID(uri)
 		if err != nil {
-			p.metrics.Counter("get_change_info_errors").Inc(1)
 			return nil, fmt.Errorf("failed to parse GitHub change ID %q: %w", uri, err)
 		}
 		changeIDs = append(changeIDs, parsed)
@@ -68,75 +63,44 @@ func (p *provider) Get(ctx context.Context, change entity.Change) ([]changeprovi
 	)
 
 	// Validate stacked changes are consistent (same provider, org, and repo)
-	org, repo, err := validateChangeConsistency(changeIDs)
-	if err != nil {
+	if err := validateChangeConsistency(changeIDs); err != nil {
 		return nil, err
 	}
 
 	// Fetch each PR and build ChangeInfo for each
-	changeInfos, fetchErrors, failedPRs := p.fetchAllPRs(ctx, changeIDs)
-
-	// Return partial results if any PRs failed
-	if len(fetchErrors) > 0 {
-		p.logger.Errorw("failed to fetch some PRs",
-			"total_prs", len(changeIDs),
-			"failed_count", len(fetchErrors),
-			"failed_prs", failedPRs,
-			"succeeded_count", len(changeInfos),
-		)
-		return changeInfos, fmt.Errorf("failed to fetch %d of %d PRs (failed: %v): %v",
-			len(fetchErrors), len(changeIDs), failedPRs, fetchErrors)
+	changeInfos, err := p.fetchAllPRs(ctx, changeIDs)
+	if err != nil {
+		return nil, err
 	}
 
 	p.logger.Debugw("successfully fetched PR data",
 		"pr_count", len(changeIDs),
 	)
 
-	p.metrics.Tagged(map[string]string{
-		"org":  org,
-		"repo": repo,
-	}).Counter("get_success").Inc(1)
-
 	return changeInfos, nil
 }
 
-// fetchAllPRs fetches and validates all PRs in the stack, handling partial failures.
-// Returns the successfully fetched ChangeInfos, any errors encountered, and the list of failed PR numbers.
+// fetchAllPRs fetches and validates all PRs in the stack, returning on the first error.
 func (p *provider) fetchAllPRs(
 	ctx context.Context,
 	changeIDs []entitygithub.ChangeID,
-) ([]changeprovider.ChangeInfo, []error, []int) {
+) ([]changeprovider.ChangeInfo, error) {
 	changeInfos := make([]changeprovider.ChangeInfo, 0, len(changeIDs))
-	var fetchErrors []error
-	var failedPRs []int
 
 	for _, cid := range changeIDs {
 		prData, err := p.fetchPullRequest(ctx, cid)
 		if err != nil {
-			p.logger.Errorw("failed to fetch PR from GitHub",
-				"org", cid.Org,
-				"repo", cid.Repo,
-				"pr", cid.PRNumber,
-				"error", err,
+			coremetrics.NamedCounter(p.metricsScope, "fetch_pr", "errors", 1,
+				coremetrics.NewTag("org", cid.Org),
+				coremetrics.NewTag("repo", cid.Repo),
 			)
-			p.metrics.Tagged(map[string]string{
-				"org":        cid.Org,
-				"repo":       cid.Repo,
-				"error_type": "fetch_pr",
-			}).Counter("get_errors").Inc(1)
-			fetchErrors = append(fetchErrors, fmt.Errorf("PR #%d: %w", cid.PRNumber, err))
-			failedPRs = append(failedPRs, cid.PRNumber)
-			continue // Continue to next PR
+			return nil, fmt.Errorf("failed to fetch PR #%d: %w", cid.PRNumber, err)
 		}
 
-		// Validate PR hasn't changed since submission
 		if err := validatePRStaleness(cid, prData); err != nil {
-			fetchErrors = append(fetchErrors, err)
-			failedPRs = append(failedPRs, cid.PRNumber)
-			continue // Continue to next PR
+			return nil, err
 		}
 
-		// Convert to ChangeInfo
 		changeInfo := convertToChangeInfo(cid, prData)
 		changeInfos = append(changeInfos, changeInfo)
 
@@ -149,7 +113,7 @@ func (p *provider) fetchAllPRs(
 		)
 	}
 
-	return changeInfos, fetchErrors, failedPRs
+	return changeInfos, nil
 }
 
 // fetchPullRequest makes GraphQL request(s) to fetch PR data, handling pagination.
@@ -189,12 +153,11 @@ func (p *provider) fetchPullRequestPage(ctx context.Context, org, repo string, p
 		return nil, fmt.Errorf("failed to marshal GraphQL request: %w", err)
 	}
 
-	resp, err := doGraphQLRequest(ctx, bodyBytes, p.client, org, repo, p.metrics)
+	resp, err := doGraphQLRequest(ctx, bodyBytes, p.client)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	return parseGraphQLResponse(resp, org, repo, prNumber, p.logger, p.metrics)
+	return parseGraphQLResponse(resp)
 }
-
