@@ -12,7 +12,10 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//core/consumer",
+        "//core/httpclient",
         "//entity",
+        "//extension/changeprovider",
+        "//extension/changeprovider/github",
         "//extension/counter",
         "//extension/counter/mysql",
         "//extension/mergechecker",
@@ -38,6 +41,7 @@ go_library(
         "@com_github_uber_go_tally_v4//:tally",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//reflection",
+        "@org_golang_x_oauth2//:oauth2",
         "@org_uber_go_zap//:zap",
     ],
 )

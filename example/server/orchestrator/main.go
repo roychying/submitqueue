@@ -28,9 +28,14 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"golang.org/x/oauth2"
+
 	"github.com/uber-go/tally/v4"
 	"github.com/uber/submitqueue/core/consumer"
+	"github.com/uber/submitqueue/core/httpclient"
 	"github.com/uber/submitqueue/entity"
+	"github.com/uber/submitqueue/extension/changeprovider"
+	githubprovider "github.com/uber/submitqueue/extension/changeprovider/github"
 	"github.com/uber/submitqueue/extension/counter"
 	mysqlcounter "github.com/uber/submitqueue/extension/counter/mysql"
 	"github.com/uber/submitqueue/extension/mergechecker"
@@ -190,8 +195,14 @@ func run() error {
 	// Create merge checker
 	mc := newMergeChecker(logger, scope)
 
+	// Create change provider
+	cp, err := newChangeProvider(logger, scope)
+	if err != nil {
+		return fmt.Errorf("failed to create change provider: %w", err)
+	}
+
 	// Register controllers
-	if err := registerControllers(c, logger.Sugar(), scope, registry, mc, cnt, store); err != nil {
+	if err := registerControllers(c, logger.Sugar(), scope, registry, mc, cp, cnt, store); err != nil {
 		return err
 	}
 
@@ -376,7 +387,7 @@ func newTopicRegistry(q extqueue.Queue, subscriberName string) (consumer.TopicRe
 //                                        │        │                        │
 //                                        └────────┴────────────────────────┘
 
-func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope tally.Scope, registry consumer.TopicRegistry, mc mergechecker.MergeChecker, cnt counter.Counter, store storage.Storage) error {
+func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope tally.Scope, registry consumer.TopicRegistry, mc mergechecker.MergeChecker, cp changeprovider.ChangeProvider, cnt counter.Counter, store storage.Storage) error {
 	requestController := start.NewController(
 		logger,
 		scope,
@@ -395,6 +406,7 @@ func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope t
 		store,
 		registry,
 		mc,
+		cp,
 		consumer.TopicKeyValidate,
 		"orchestrator-validate",
 	)
@@ -514,6 +526,26 @@ func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope t
 	return nil
 }
 
+// getEnv returns environment variable value or default if not set.
+func getEnv(key, defaultVal string) string {
+	if val := os.Getenv(key); val != "" {
+		return val
+	}
+	return defaultVal
+}
+
+// parseTimeout parses a duration from environment variable with fallback to default.
+// Returns defaultVal if envVal is empty or cannot be parsed.
+func parseTimeout(envVal string, defaultVal time.Duration) time.Duration {
+	if envVal == "" {
+		return defaultVal
+	}
+	if d, err := time.ParseDuration(envVal); err == nil {
+		return d
+	}
+	return defaultVal
+}
+
 // newMergeChecker creates a MergeChecker for GitHub (github.com).
 // Configured via GITHUB_TOKEN and GITHUB_GRAPHQL_URL environment variables.
 func newMergeChecker(logger *zap.Logger, scope tally.Scope) mergechecker.MergeChecker {
@@ -537,6 +569,28 @@ func newMergeChecker(logger *zap.Logger, scope tally.Scope) mergechecker.MergeCh
 	return mergechecker.NewMultiChecker(map[string]mergechecker.MergeChecker{
 		"github": github,
 	})
+}
+
+// newChangeProvider creates a ChangeProvider for GitHub (github.com).
+// Configured via GITHUB_BASE_URL, GITHUB_TOKEN, and GITHUB_TIMEOUT environment variables.
+func newChangeProvider(logger *zap.Logger, scope tally.Scope) (changeprovider.ChangeProvider, error) {
+	client, err := httpclient.NewClient(getEnv("GITHUB_BASE_URL", "https://api.github.com"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to build GitHub HTTP client: %w", err)
+	}
+
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: token})
+		client.Transport = &oauth2.Transport{Source: ts, Base: client.Transport}
+	}
+
+	client.Timeout = parseTimeout(os.Getenv("GITHUB_TIMEOUT"), 30*time.Second)
+
+	return githubprovider.NewProvider(githubprovider.Params{
+		HTTPClient:   client,
+		Logger:       logger.Sugar(),
+		MetricsScope: scope.SubScope("changeprovider"),
+	}), nil
 }
 
 // bearerTransport is an http.RoundTripper that adds a Bearer token to requests.
