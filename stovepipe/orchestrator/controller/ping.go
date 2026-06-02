@@ -21,17 +21,17 @@ import (
 
 	"github.com/uber-go/tally/v4"
 	"github.com/uber/submitqueue/core/metrics"
-	pb "github.com/uber/submitqueue/stovepipe/gateway/protopb"
+	pb "github.com/uber/submitqueue/stovepipe/orchestrator/protopb"
 	"go.uber.org/zap"
 )
 
-// PingController handles ping business logic for the stovepipe
+// PingController handles ping business logic for the Stovepipe orchestrator.
 type PingController struct {
 	logger       *zap.Logger
 	metricsScope tally.Scope
 }
 
-// NewPingController creates a new instance of the stovepipe ping controller
+// NewPingController creates a new instance of the Stovepipe orchestrator ping controller.
 func NewPingController(logger *zap.Logger, scope tally.Scope) *PingController {
 	return &PingController{
 		logger:       logger,
@@ -39,7 +39,7 @@ func NewPingController(logger *zap.Logger, scope tally.Scope) *PingController {
 	}
 }
 
-// Ping handles the ping request and returns a response
+// Ping handles the ping request and returns a response.
 func (c *PingController) Ping(ctx context.Context, req *pb.PingRequest) (resp *pb.PingResponse, retErr error) {
 	const opName = "ping"
 
@@ -64,7 +64,7 @@ func (c *PingController) Ping(ctx context.Context, req *pb.PingRequest) (resp *p
 
 	return &pb.PingResponse{
 		Message:     message,
-		ServiceName: "stovepipe-gateway",
+		ServiceName: "stovepipe-orchestrator",
 		Timestamp:   time.Now().Unix(),
 		Hostname:    hostname,
 	}, nil

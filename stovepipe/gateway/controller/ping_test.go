@@ -75,7 +75,7 @@ func TestPing_ServiceName(t *testing.T) {
 	resp, err := controller.Ping(ctx, req)
 
 	require.NoError(t, err)
-	assert.Equal(t, "stovepipe", resp.ServiceName)
+	assert.Equal(t, "stovepipe-gateway", resp.ServiceName)
 }
 
 func TestPing_Timestamp(t *testing.T) {

@@ -1,8 +1,0 @@
-load("@rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "orchestrator",
-    srcs = ["doc.go"],
-    importpath = "github.com/uber/submitqueue/stovepipe/orchestrator",
-    visibility = ["//visibility:public"],
-)

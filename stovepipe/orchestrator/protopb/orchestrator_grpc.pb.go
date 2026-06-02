@@ -33,108 +33,107 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	SubmitQueueOrchestrator_Ping_FullMethodName = "/uber.submitqueue.orchestrator.SubmitQueueOrchestrator/Ping"
+	StovepipeOrchestrator_Ping_FullMethodName = "/uber.submitqueue.stovepipe.orchestrator.StovepipeOrchestrator/Ping"
 )
 
-// SubmitQueueOrchestratorClient is the client API for SubmitQueueOrchestrator service.
+// StovepipeOrchestratorClient is the client API for StovepipeOrchestrator service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
-// SubmitQueueOrchestrator provides the orchestrator API
-type SubmitQueueOrchestratorClient interface {
+// StovepipeOrchestrator provides the Stovepipe orchestrator API.
+type StovepipeOrchestratorClient interface {
 	// Ping returns a response indicating the service is alive
 	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error)
 }
 
-type submitQueueOrchestratorClient struct {
+type stovepipeOrchestratorClient struct {
 	cc grpc.ClientConnInterface
 }
 
-func NewSubmitQueueOrchestratorClient(cc grpc.ClientConnInterface) SubmitQueueOrchestratorClient {
-	return &submitQueueOrchestratorClient{cc}
+func NewStovepipeOrchestratorClient(cc grpc.ClientConnInterface) StovepipeOrchestratorClient {
+	return &stovepipeOrchestratorClient{cc}
 }
 
-func (c *submitQueueOrchestratorClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
+func (c *stovepipeOrchestratorClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PingResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(PingResponse)
-	err := c.cc.Invoke(ctx, SubmitQueueOrchestrator_Ping_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, StovepipeOrchestrator_Ping_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// SubmitQueueOrchestratorServer is the server API for SubmitQueueOrchestrator service.
-// All implementations must embed UnimplementedSubmitQueueOrchestratorServer
+// StovepipeOrchestratorServer is the server API for StovepipeOrchestrator service.
+// All implementations must embed UnimplementedStovepipeOrchestratorServer
 // for forward compatibility.
 //
-// SubmitQueueOrchestrator provides the orchestrator API
-type SubmitQueueOrchestratorServer interface {
+// StovepipeOrchestrator provides the Stovepipe orchestrator API.
+type StovepipeOrchestratorServer interface {
 	// Ping returns a response indicating the service is alive
 	Ping(context.Context, *PingRequest) (*PingResponse, error)
-	mustEmbedUnimplementedSubmitQueueOrchestratorServer()
+	mustEmbedUnimplementedStovepipeOrchestratorServer()
 }
 
-// UnimplementedSubmitQueueOrchestratorServer must be embedded to have
+// UnimplementedStovepipeOrchestratorServer must be embedded to have
 // forward compatible implementations.
 //
 // NOTE: this should be embedded by value instead of pointer to avoid a nil
 // pointer dereference when methods are called.
-type UnimplementedSubmitQueueOrchestratorServer struct{}
+type UnimplementedStovepipeOrchestratorServer struct{}
 
-func (UnimplementedSubmitQueueOrchestratorServer) Ping(context.Context, *PingRequest) (*PingResponse, error) {
+func (UnimplementedStovepipeOrchestratorServer) Ping(context.Context, *PingRequest) (*PingResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
-func (UnimplementedSubmitQueueOrchestratorServer) mustEmbedUnimplementedSubmitQueueOrchestratorServer() {
-}
-func (UnimplementedSubmitQueueOrchestratorServer) testEmbeddedByValue() {}
+func (UnimplementedStovepipeOrchestratorServer) mustEmbedUnimplementedStovepipeOrchestratorServer() {}
+func (UnimplementedStovepipeOrchestratorServer) testEmbeddedByValue()                               {}
 
-// UnsafeSubmitQueueOrchestratorServer may be embedded to opt out of forward compatibility for this service.
-// Use of this interface is not recommended, as added methods to SubmitQueueOrchestratorServer will
+// UnsafeStovepipeOrchestratorServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to StovepipeOrchestratorServer will
 // result in compilation errors.
-type UnsafeSubmitQueueOrchestratorServer interface {
-	mustEmbedUnimplementedSubmitQueueOrchestratorServer()
+type UnsafeStovepipeOrchestratorServer interface {
+	mustEmbedUnimplementedStovepipeOrchestratorServer()
 }
 
-func RegisterSubmitQueueOrchestratorServer(s grpc.ServiceRegistrar, srv SubmitQueueOrchestratorServer) {
-	// If the following call pancis, it indicates UnimplementedSubmitQueueOrchestratorServer was
+func RegisterStovepipeOrchestratorServer(s grpc.ServiceRegistrar, srv StovepipeOrchestratorServer) {
+	// If the following call pancis, it indicates UnimplementedStovepipeOrchestratorServer was
 	// embedded by pointer and is nil.  This will cause panics if an
 	// unimplemented method is ever invoked, so we test this at initialization
 	// time to prevent it from happening at runtime later due to I/O.
 	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
 		t.testEmbeddedByValue()
 	}
-	s.RegisterService(&SubmitQueueOrchestrator_ServiceDesc, srv)
+	s.RegisterService(&StovepipeOrchestrator_ServiceDesc, srv)
 }
 
-func _SubmitQueueOrchestrator_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _StovepipeOrchestrator_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(PingRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(SubmitQueueOrchestratorServer).Ping(ctx, in)
+		return srv.(StovepipeOrchestratorServer).Ping(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: SubmitQueueOrchestrator_Ping_FullMethodName,
+		FullMethod: StovepipeOrchestrator_Ping_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(SubmitQueueOrchestratorServer).Ping(ctx, req.(*PingRequest))
+		return srv.(StovepipeOrchestratorServer).Ping(ctx, req.(*PingRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-// SubmitQueueOrchestrator_ServiceDesc is the grpc.ServiceDesc for SubmitQueueOrchestrator service.
+// StovepipeOrchestrator_ServiceDesc is the grpc.ServiceDesc for StovepipeOrchestrator service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
-var SubmitQueueOrchestrator_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "uber.submitqueue.orchestrator.SubmitQueueOrchestrator",
-	HandlerType: (*SubmitQueueOrchestratorServer)(nil),
+var StovepipeOrchestrator_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "uber.submitqueue.stovepipe.orchestrator.StovepipeOrchestrator",
+	HandlerType: (*StovepipeOrchestratorServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "Ping",
-			Handler:    _SubmitQueueOrchestrator_Ping_Handler,
+			Handler:    _StovepipeOrchestrator_Ping_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

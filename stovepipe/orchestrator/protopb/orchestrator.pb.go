@@ -158,17 +158,17 @@ var File_orchestrator_proto protoreflect.FileDescriptor
 
 const file_orchestrator_proto_rawDesc = "" +
 	"\n" +
-	"\x12orchestrator.proto\x12\x1duber.submitqueue.orchestrator\"'\n" +
+	"\x12orchestrator.proto\x12'uber.submitqueue.stovepipe.orchestrator\"'\n" +
 	"\vPingRequest\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x85\x01\n" +
 	"\fPingResponse\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\x12!\n" +
 	"\fservice_name\x18\x02 \x01(\tR\vserviceName\x12\x1c\n" +
 	"\ttimestamp\x18\x03 \x01(\x03R\ttimestamp\x12\x1a\n" +
-	"\bhostname\x18\x04 \x01(\tR\bhostname2|\n" +
-	"\x17SubmitQueueOrchestrator\x12a\n" +
-	"\x04Ping\x12*.uber.submitqueue.orchestrator.PingRequest\x1a+.uber.submitqueue.orchestrator.PingResponse\"\x00Bj\n" +
-	"!com.uber.submitqueue.orchestratorB\x11OrchestratorProtoP\x01Z0github.com/uber/submitqueue/orchestrator/protopbb\x06proto3"
+	"\bhostname\x18\x04 \x01(\tR\bhostname2\x8e\x01\n" +
+	"\x15StovepipeOrchestrator\x12u\n" +
+	"\x04Ping\x124.uber.submitqueue.stovepipe.orchestrator.PingRequest\x1a5.uber.submitqueue.stovepipe.orchestrator.PingResponse\"\x00B~\n" +
+	"+com.uber.submitqueue.stovepipe.orchestratorB\x11OrchestratorProtoP\x01Z:github.com/uber/submitqueue/stovepipe/orchestrator/protopbb\x06proto3"
 
 var (
 	file_orchestrator_proto_rawDescOnce sync.Once
@@ -184,12 +184,12 @@ func file_orchestrator_proto_rawDescGZIP() []byte {
 
 var file_orchestrator_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_orchestrator_proto_goTypes = []any{
-	(*PingRequest)(nil),  // 0: uber.submitqueue.orchestrator.PingRequest
-	(*PingResponse)(nil), // 1: uber.submitqueue.orchestrator.PingResponse
+	(*PingRequest)(nil),  // 0: uber.submitqueue.stovepipe.orchestrator.PingRequest
+	(*PingResponse)(nil), // 1: uber.submitqueue.stovepipe.orchestrator.PingResponse
 }
 var file_orchestrator_proto_depIdxs = []int32{
-	0, // 0: uber.submitqueue.orchestrator.SubmitQueueOrchestrator.Ping:input_type -> uber.submitqueue.orchestrator.PingRequest
-	1, // 1: uber.submitqueue.orchestrator.SubmitQueueOrchestrator.Ping:output_type -> uber.submitqueue.orchestrator.PingResponse
+	0, // 0: uber.submitqueue.stovepipe.orchestrator.StovepipeOrchestrator.Ping:input_type -> uber.submitqueue.stovepipe.orchestrator.PingRequest
+	1, // 1: uber.submitqueue.stovepipe.orchestrator.StovepipeOrchestrator.Ping:output_type -> uber.submitqueue.stovepipe.orchestrator.PingResponse
 	1, // [1:2] is the sub-list for method output_type
 	0, // [0:1] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name

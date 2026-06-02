@@ -26,21 +26,21 @@ import (
 	"time"
 
 	"github.com/uber-go/tally/v4"
-	"github.com/uber/submitqueue/stovepipe/gateway/controller"
-	pb "github.com/uber/submitqueue/stovepipe/gateway/protopb"
+	"github.com/uber/submitqueue/stovepipe/orchestrator/controller"
+	pb "github.com/uber/submitqueue/stovepipe/orchestrator/protopb"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 )
 
-// StovepipeServer wraps the controller and implements the gRPC service interface
-type StovepipeServer struct {
-	pb.UnimplementedSubmitQueueStovepipeServer
+// OrchestratorServer wraps the controller and implements the gRPC service interface.
+type OrchestratorServer struct {
+	pb.UnimplementedStovepipeOrchestratorServer
 	pingController *controller.PingController
 }
 
-// Ping delegates to the controller
-func (s *StovepipeServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
+// Ping delegates to the controller.
+func (s *OrchestratorServer) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
 	return s.pingController.Ping(ctx, req)
 }
 
@@ -48,13 +48,13 @@ func main() {
 	code := 0
 	if err := run(); err != nil {
 		if errors.Is(err, context.Canceled) {
-			fmt.Println("Stovepipe server stopped by signal")
+			fmt.Println("Stovepipe orchestrator server stopped by signal")
 
 			// Return 143 (128 + SIGTERM) as per POSIX standard if the application receives any termination signal from the OS. Ideally we should return 128+SIGINT for SIGINT and 128+SIGTERM for SIGTERM,
 			// but it will require a special processing not yet available in the standard library.
 			code = 128 + int(syscall.SIGTERM)
 		} else {
-			fmt.Fprintf(os.Stderr, "Stovepipe server failure: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Stovepipe orchestrator server failure: %v\n", err)
 			// TODO: classify errors and implement a binary protocol for exit codes, so far 1 for everything
 			code = 1
 		}
@@ -63,19 +63,16 @@ func main() {
 }
 
 func run() error {
-	// Set up signal handling early so retry loops can respond to SIGTERM
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// Initialize development logger (human-readable console output)
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
 	defer logger.Sync()
 
-	// Initialize metrics scope
-	scope := tally.NewTestScope("stovepipe", nil)
+	scope := tally.NewTestScope("stovepipe_orchestrator", nil)
 	metricsStopCh := make(chan interface{}, 1)
 	metricsWgDone := sync.WaitGroup{}
 	metricsWgDone.Add(1)
@@ -105,56 +102,44 @@ func run() error {
 		metricsWgDone.Wait()
 	}()
 
-	// Create gRPC server
 	grpcServer := grpc.NewServer()
 
-	// Create ping controller and wrap it for gRPC
 	pingController := controller.NewPingController(logger, scope)
-	stovepipeServer := &StovepipeServer{
+	srv := &OrchestratorServer{
 		pingController: pingController,
 	}
-	pb.RegisterSubmitQueueStovepipeServer(grpcServer, stovepipeServer)
+	pb.RegisterStovepipeOrchestratorServer(grpcServer, srv)
 
-	// Register reflection service for debugging with grpcurl
 	reflection.Register(grpcServer)
 
-	// Listen on configurable port
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = ":8083"
+		port = ":8084"
 	}
 	listener, err := net.Listen("tcp", port)
 	if err != nil {
 		return fmt.Errorf("failed to listen on port %s: %w", port, err)
 	}
 
-	fmt.Printf("Stovepipe gRPC server is running on %s\n", port)
+	fmt.Printf("Stovepipe orchestrator gRPC server is running on %s\n", port)
 	fmt.Println("Press Ctrl+C to stop, or send a SIGTERM.")
 
-	// Start server in a goroutine and wait for it to finish
 	serverErrCh := make(chan error, 1)
 	go func() {
 		serverErrCh <- grpcServer.Serve(listener)
 	}()
 
-	// Wait for interrupt signal or server critical error
-	// If interruption is signaled, gracefully stop the server
-	// If an error happens during shutdown, return the actual error, not the context cancellation error
 	var serverErr error
 	select {
 	case <-ctx.Done():
-		fmt.Println("Shutting down stovepipe server due to interruption signal...")
+		fmt.Println("Shutting down stovepipe orchestrator server due to interruption signal...")
 
-		// Set the error to the context cancellation error to be surfaced as a desired exit code by the main function
-		// to indicate that the server was stopped as intended
-		// It may be overridden by the server error if any
 		err = ctx.Err()
 
-		// stop GRPC server and wait for it to exit
 		grpcServer.GracefulStop()
 		serverErr = <-serverErrCh
 	case serverErr = <-serverErrCh:
-		fmt.Println("Shutting down stovepipe server due to critical GRPC server error...")
+		fmt.Println("Shutting down stovepipe orchestrator server due to critical GRPC server error...")
 	}
 
 	if serverErr != nil {

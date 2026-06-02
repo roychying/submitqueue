@@ -38,19 +38,20 @@ type ComposeStack struct {
 	t           *testing.T
 	log         *TestLogger
 	ctx         context.Context
-	composeCmd  []string  // docker-compose command (either ["docker-compose"] or ["docker", "compose"])
+	composeCmd  []string  // compose CLI: ["docker", "compose"] or ["docker-compose"]
 	logCmd      *exec.Cmd // background "docker compose logs -f" process
 }
 
-// getDockerComposeCommand returns the docker-compose command to use.
-// Tries "docker-compose" first (V1), falls back to "docker compose" (V2).
+// getDockerComposeCommand returns the compose CLI to use.
+// Prefer Docker Compose v2 (`docker compose`) so `up --wait` works (required by ComposeStack.Up).
+// Fall back to standalone `docker-compose` when the Docker CLI is not on PATH.
 func getDockerComposeCommand() []string {
-	// Try docker-compose (V1)
+	if _, err := exec.LookPath("docker"); err == nil {
+		return []string{"docker", "compose"}
+	}
 	if _, err := exec.LookPath("docker-compose"); err == nil {
 		return []string{"docker-compose"}
 	}
-
-	// Fall back to docker compose (V2)
 	return []string{"docker", "compose"}
 }
 
