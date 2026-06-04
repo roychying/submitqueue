@@ -78,8 +78,9 @@ if [[ ! -x "${protoc_bin}" ]]; then
       exit 1
     fi
   else
-    echo "tool/protoc: no pinned checksum for ${version}:${plat}; add one to tool/protoc" >&2
+    echo "tool/protoc: no pinned checksum for ${version}:${plat}; refusing to run unverified download" >&2
     echo "  (downloaded sha256: $(sha256 "${tmp}/protoc.zip"))" >&2
+    exit 1
   fi
   rm -rf "${install_dir}"
   mkdir -p "${install_dir}"
