@@ -341,19 +341,19 @@ proto: ## Generate protobuf files from .proto definitions
 	@echo "Generating protobuf files with protoc..."
 	@protoc --go_out=submitqueue/gateway/protopb --go_opt=paths=source_relative \
 	  --go-grpc_out=submitqueue/gateway/protopb --go-grpc_opt=paths=source_relative \
-	  --yarpc-go_out=submitqueue/gateway/protopb --yarpc-go_opt=paths=source_relative \
+	  --yarpc-go-v2_out=submitqueue/gateway/protopb --yarpc-go-v2_opt=paths=source_relative \
 	  --proto_path=submitqueue/gateway/proto submitqueue/gateway/proto/gateway.proto
 	@protoc --go_out=submitqueue/orchestrator/protopb --go_opt=paths=source_relative \
 	  --go-grpc_out=submitqueue/orchestrator/protopb --go-grpc_opt=paths=source_relative \
-	  --yarpc-go_out=submitqueue/orchestrator/protopb --yarpc-go_opt=paths=source_relative \
+	  --yarpc-go-v2_out=submitqueue/orchestrator/protopb --yarpc-go-v2_opt=paths=source_relative \
 	  --proto_path=submitqueue/orchestrator/proto submitqueue/orchestrator/proto/orchestrator.proto
 	@protoc --go_out=stovepipe/gateway/protopb --go_opt=paths=source_relative \
 	  --go-grpc_out=stovepipe/gateway/protopb --go-grpc_opt=paths=source_relative \
-	  --yarpc-go_out=stovepipe/gateway/protopb --yarpc-go_opt=paths=source_relative \
+	  --yarpc-go-v2_out=stovepipe/gateway/protopb --yarpc-go-v2_opt=paths=source_relative \
 	  --proto_path=stovepipe/gateway/proto stovepipe/gateway/proto/gateway.proto
 	@protoc --go_out=stovepipe/orchestrator/protopb --go_opt=paths=source_relative \
 	  --go-grpc_out=stovepipe/orchestrator/protopb --go-grpc_opt=paths=source_relative \
-	  --yarpc-go_out=stovepipe/orchestrator/protopb --yarpc-go_opt=paths=source_relative \
+	  --yarpc-go-v2_out=stovepipe/orchestrator/protopb --yarpc-go-v2_opt=paths=source_relative \
 	  --proto_path=stovepipe/orchestrator/proto stovepipe/orchestrator/proto/orchestrator.proto
 	@echo "Protobuf files generated successfully!"
 

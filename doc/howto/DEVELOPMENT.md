@@ -91,7 +91,7 @@ brew install protobuf grpcurl
 # Go protoc plugins (only if modifying .proto files)
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-go install go.uber.org/yarpc/encoding/protobuf/protoc-gen-yarpc-go@latest
+go install go.uber.org/yarpc/encoding/protobuf/protoc-gen-yarpc-go-v2@latest
 ```
 
 ## Common Make Targets
