@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "buildkite",
+    srcs = [
+        "buildkite.go",
+        "client.go",
+    ],
+    importpath = "github.com/uber/submitqueue/submitqueue/extension/buildrunner/buildkite",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//submitqueue/entity",
+        "//submitqueue/extension/buildrunner",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "buildkite_test",
+    srcs = ["buildkite_test.go"],
+    embed = [":buildkite"],
+    deps = [
+        "//core/httpclient",
+        "//submitqueue/entity",
+        "//submitqueue/extension/buildrunner",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+        "@org_uber_go_zap//:zap",
+    ],
+)
