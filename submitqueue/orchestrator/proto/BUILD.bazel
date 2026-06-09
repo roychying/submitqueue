@@ -26,14 +26,7 @@ go_proto_library(
 )
 
 go_library(
-    name = "proto",
-    embed = [":orchestratorpb_go_proto"],
-    importpath = "github.com/uber/submitqueue/submitqueue/orchestrator/proto",
-    visibility = ["//visibility:public"],
-)
-
-go_library(
-    name = "protopb",
+    name = "go_default_library",
     embed = [":orchestratorpb_go_proto"],
     importpath = "github.com/uber/submitqueue/submitqueue/orchestrator/protopb",
     visibility = ["//visibility:public"],

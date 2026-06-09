@@ -1,7 +1,7 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
-    name = "dlq",
+    name = "go_default_library",
     srcs = [
         "batch.go",
         "buildsignal.go",
@@ -12,17 +12,17 @@ go_library(
     importpath = "github.com/uber/submitqueue/submitqueue/orchestrator/controller/dlq",
     visibility = ["//visibility:public"],
     deps = [
-        "//core/metrics",
-        "//submitqueue/core/consumer",
-        "//submitqueue/entity",
-        "//submitqueue/extension/storage",
-        "@com_github_uber_go_tally//:tally",
-        "@org_uber_go_zap//:zap",
+        "//core/metrics:go_default_library",
+        "//submitqueue/core/consumer:go_default_library",
+        "//submitqueue/entity:go_default_library",
+        "//submitqueue/extension/storage:go_default_library",
+        "@com_github_uber_go_tally//:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
     ],
 )
 
 go_test(
-    name = "dlq_test",
+    name = "go_default_test",
     srcs = [
         "batch_test.go",
         "buildsignal_test.go",
@@ -30,19 +30,19 @@ go_test(
         "log_test.go",
         "request_test.go",
     ],
-    embed = [":dlq"],
+    embed = [":go_default_library"],
     deps = [
-        "//core/errs",
-        "//entity/messagequeue",
-        "//extension/messagequeue/mock",
-        "//submitqueue/core/consumer",
-        "//submitqueue/entity",
-        "//submitqueue/extension/storage",
-        "//submitqueue/extension/storage/mock",
-        "@com_github_stretchr_testify//assert",
-        "@com_github_stretchr_testify//require",
-        "@com_github_uber_go_tally//:tally",
-        "@org_uber_go_mock//gomock",
-        "@org_uber_go_zap//zaptest",
+        "//core/errs:go_default_library",
+        "//entity/messagequeue:go_default_library",
+        "//extension/messagequeue/mock:go_default_library",
+        "//submitqueue/core/consumer:go_default_library",
+        "//submitqueue/entity:go_default_library",
+        "//submitqueue/extension/storage:go_default_library",
+        "//submitqueue/extension/storage/mock:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@com_github_stretchr_testify//require:go_default_library",
+        "@com_github_uber_go_tally//:go_default_library",
+        "@org_uber_go_mock//gomock:go_default_library",
+        "@org_uber_go_zap//zaptest:go_default_library",
     ],
 )

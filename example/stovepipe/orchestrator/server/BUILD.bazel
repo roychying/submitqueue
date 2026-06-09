@@ -11,12 +11,12 @@ go_library(
     importpath = "github.com/uber/submitqueue/example/stovepipe/orchestrator/server",
     visibility = ["//visibility:private"],
     deps = [
-        "//stovepipe/orchestrator/controller",
-        "//stovepipe/orchestrator/protopb",
-        "@com_github_uber_go_tally//:tally",
-        "@org_golang_google_grpc//:grpc",
-        "@org_golang_google_grpc//reflection",
-        "@org_uber_go_zap//:zap",
+        "//stovepipe/orchestrator/controller:go_default_library",
+        "//stovepipe/orchestrator/protopb:go_default_library",
+        "@com_github_uber_go_tally//:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//reflection:go_default_library",
+        "@org_uber_go_zap//:go_default_library",
     ],
 )
 

@@ -1,24 +1,14 @@
 load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
-    name = "gateway_test",
+    name = "go_default_test",
     srcs = ["suite_test.go"],
-    data = [
-        "//:MODULE.bazel",
-        "//:go.mod",
-        "//example/stovepipe/gateway/server:docker-compose.yml",
-        "//extension/messagequeue/mysql/schema",
-    ],
-    tags = [
-        "external",
-        "integration",
-    ],
     deps = [
-        "//stovepipe/gateway/protopb",
-        "//test/testutil",
-        "@com_github_stretchr_testify//assert",
-        "@com_github_stretchr_testify//require",
-        "@com_github_stretchr_testify//suite",
-        "@org_golang_google_grpc//:grpc",
+        "//stovepipe/gateway/protopb:go_default_library",
+        "//test/testutil:go_default_library",
+        "@com_github_stretchr_testify//assert:go_default_library",
+        "@com_github_stretchr_testify//require:go_default_library",
+        "@com_github_stretchr_testify//suite:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
     ],
 )

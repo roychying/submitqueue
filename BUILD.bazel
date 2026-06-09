@@ -1,16 +1,19 @@
 load("@gazelle//:def.bzl", "gazelle")
 
 # gazelle:prefix github.com/uber/submitqueue
+# Match go_repository + -go_naming_convention_external=go_default_library so consumers
+# see the same target suffixes as generated build files.
+# gazelle:go_naming_convention go_default_library
 
 # Exclude nested worktrees (created under .claude/worktrees) so gazelle does not
 # index them as duplicate rule definitions and corrupt the canonical BUILD files.
 # gazelle:exclude .claude
 
 # Resolve protobuf import ambiguities - use the actual protopb packages, not the proto aliases
-# gazelle:resolve go github.com/uber/submitqueue/submitqueue/gateway/protopb //submitqueue/gateway/protopb
-# gazelle:resolve go github.com/uber/submitqueue/submitqueue/orchestrator/protopb //submitqueue/orchestrator/protopb
-# gazelle:resolve go github.com/uber/submitqueue/stovepipe/gateway/protopb //stovepipe/gateway/protopb
-# gazelle:resolve go github.com/uber/submitqueue/stovepipe/orchestrator/protopb //stovepipe/orchestrator/protopb
+# gazelle:resolve go github.com/uber/submitqueue/submitqueue/gateway/protopb //submitqueue/gateway/protopb:go_default_library
+# gazelle:resolve go github.com/uber/submitqueue/submitqueue/orchestrator/protopb //submitqueue/orchestrator/protopb:go_default_library
+# gazelle:resolve go github.com/uber/submitqueue/stovepipe/gateway/protopb //stovepipe/gateway/protopb:go_default_library
+# gazelle:resolve go github.com/uber/submitqueue/stovepipe/orchestrator/protopb //stovepipe/orchestrator/protopb:go_default_library
 
 # Export marker files for test data dependencies (used by FindRepoRoot in tests)
 exports_files(
