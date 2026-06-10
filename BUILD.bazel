@@ -11,6 +11,7 @@ load("@gazelle//:def.bzl", "gazelle")
 # gazelle:resolve go github.com/uber/submitqueue/submitqueue/orchestrator/protopb //submitqueue/orchestrator/protopb
 # gazelle:resolve go github.com/uber/submitqueue/stovepipe/gateway/protopb //stovepipe/gateway/protopb
 # gazelle:resolve go github.com/uber/submitqueue/stovepipe/orchestrator/protopb //stovepipe/orchestrator/protopb
+# gazelle:resolve go github.com/uber/submitqueue/pushqueue/gateway/protopb //pushqueue/gateway/protopb
 
 # Export marker files for test data dependencies (used by FindRepoRoot in tests)
 exports_files(
