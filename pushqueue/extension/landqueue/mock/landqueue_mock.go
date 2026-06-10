@@ -13,7 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	entity "github.com/uber/submitqueue/pushqueue/entity"
+	entity "github.com/uber/submitqueue/entity"
+	entity0 "github.com/uber/submitqueue/pushqueue/entity"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,7 +43,7 @@ func (m *MockPreparer) EXPECT() *MockPreparerMockRecorder {
 }
 
 // Prepare mocks base method.
-func (m *MockPreparer) Prepare(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error {
+func (m *MockPreparer) Prepare(ctx context.Context, target entity.QueueTarget, items []entity0.LandItem) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Prepare", ctx, target, items)
 	ret0, _ := ret[0].(error)
@@ -94,7 +95,7 @@ func (mr *MockQueueMockRecorder) Dequeue(ctx, target any) *gomock.Call {
 }
 
 // Enqueue mocks base method.
-func (m *MockQueue) Enqueue(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error {
+func (m *MockQueue) Enqueue(ctx context.Context, target entity.QueueTarget, items []entity0.LandItem) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enqueue", ctx, target, items)
 	ret0, _ := ret[0].(error)

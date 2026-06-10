@@ -19,7 +19,8 @@ package landqueue
 import (
 	"context"
 
-	"github.com/uber/submitqueue/pushqueue/entity"
+	"github.com/uber/submitqueue/entity"
+	pqentity "github.com/uber/submitqueue/pushqueue/entity"
 )
 
 // Preparer performs pre-push preparation for a set of land items.
@@ -27,7 +28,7 @@ import (
 // receives a Preparer at construction time and may invoke it between
 // Enqueue and Wait to pipeline preparation with queue wait time.
 type Preparer interface {
-	Prepare(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error
+	Prepare(ctx context.Context, target entity.QueueTarget, items []pqentity.LandItem) error
 }
 
 // Queue serializes access to a landing target, ensuring only one request
@@ -44,7 +45,7 @@ type Preparer interface {
 //   - Implementations decide when to call Preparer.Prepare — during the
 //     wait (pipelined) or synchronously before Wait returns (simple).
 type Queue interface {
-	Enqueue(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error
+	Enqueue(ctx context.Context, target entity.QueueTarget, items []pqentity.LandItem) error
 	Wait(ctx context.Context, target entity.QueueTarget) error
 	Dequeue(ctx context.Context, target entity.QueueTarget) error
 }

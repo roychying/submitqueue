@@ -26,7 +26,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/uber/submitqueue/core/errs"
-	"github.com/uber/submitqueue/pushqueue/entity"
+	"github.com/uber/submitqueue/entity"
+	pqentity "github.com/uber/submitqueue/pushqueue/entity"
 	landqueuemock "github.com/uber/submitqueue/pushqueue/extension/landqueue/mock"
 	"github.com/uber/submitqueue/pushqueue/extension/vcs"
 	vcsmock "github.com/uber/submitqueue/pushqueue/extension/vcs/mock"
@@ -65,9 +66,9 @@ func TestLand_Success(t *testing.T) {
 	mockQueue := landqueuemock.NewMockQueue(ctrl)
 
 	target := testTarget()
-	items := []entity.LandItem{{
+	items := []pqentity.LandItem{{
 		URIs:     []string{"github://uber/repo/pull/1/abc123"},
-		Strategy: entity.LandStrategyRebase,
+		Strategy: pqentity.LandStrategyRebase,
 	}}
 
 	gomock.InOrder(
@@ -232,12 +233,12 @@ func TestLand_StrategyMapping(t *testing.T) {
 	testCases := []struct {
 		name     string
 		proto    pb.Strategy
-		expected entity.LandStrategy
+		expected pqentity.LandStrategy
 	}{
-		{"rebase", pb.Strategy_STRATEGY_REBASE, entity.LandStrategyRebase},
-		{"squash_rebase", pb.Strategy_STRATEGY_SQUASH_REBASE, entity.LandStrategySquashRebase},
-		{"merge", pb.Strategy_STRATEGY_MERGE, entity.LandStrategyMerge},
-		{"unspecified", pb.Strategy_STRATEGY_UNSPECIFIED, entity.LandStrategyUnknown},
+		{"rebase", pb.Strategy_STRATEGY_REBASE, pqentity.LandStrategyRebase},
+		{"squash_rebase", pb.Strategy_STRATEGY_SQUASH_REBASE, pqentity.LandStrategySquashRebase},
+		{"merge", pb.Strategy_STRATEGY_MERGE, pqentity.LandStrategyMerge},
+		{"unspecified", pb.Strategy_STRATEGY_UNSPECIFIED, pqentity.LandStrategyUnknown},
 	}
 
 	for _, tc := range testCases {

@@ -13,7 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	entity "github.com/uber/submitqueue/pushqueue/entity"
+	entity "github.com/uber/submitqueue/entity"
+	entity0 "github.com/uber/submitqueue/pushqueue/entity"
 	vcs "github.com/uber/submitqueue/pushqueue/extension/vcs"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -43,7 +44,7 @@ func (m *MockVCS) EXPECT() *MockVCSMockRecorder {
 }
 
 // CheckMergeability mocks base method.
-func (m *MockVCS) CheckMergeability(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) ([]vcs.MergeabilityResult, error) {
+func (m *MockVCS) CheckMergeability(ctx context.Context, target entity.QueueTarget, items []entity0.LandItem) ([]vcs.MergeabilityResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckMergeability", ctx, target, items)
 	ret0, _ := ret[0].([]vcs.MergeabilityResult)
@@ -58,7 +59,7 @@ func (mr *MockVCSMockRecorder) CheckMergeability(ctx, target, items any) *gomock
 }
 
 // Finalize mocks base method.
-func (m *MockVCS) Finalize(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error {
+func (m *MockVCS) Finalize(ctx context.Context, target entity.QueueTarget, items []entity0.LandItem) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Finalize", ctx, target, items)
 	ret0, _ := ret[0].(error)
@@ -72,7 +73,7 @@ func (mr *MockVCSMockRecorder) Finalize(ctx, target, items any) *gomock.Call {
 }
 
 // Prepare mocks base method.
-func (m *MockVCS) Prepare(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error {
+func (m *MockVCS) Prepare(ctx context.Context, target entity.QueueTarget, items []entity0.LandItem) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Prepare", ctx, target, items)
 	ret0, _ := ret[0].(error)
@@ -86,7 +87,7 @@ func (mr *MockVCSMockRecorder) Prepare(ctx, target, items any) *gomock.Call {
 }
 
 // Push mocks base method.
-func (m *MockVCS) Push(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) (vcs.PushResult, error) {
+func (m *MockVCS) Push(ctx context.Context, target entity.QueueTarget, items []entity0.LandItem) (vcs.PushResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Push", ctx, target, items)
 	ret0, _ := ret[0].(vcs.PushResult)

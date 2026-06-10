@@ -11,6 +11,7 @@ go_library(
     deps = [
         "//core/errs",
         "//core/metrics",
+        "//entity",
         "//pushqueue/entity",
         "//pushqueue/extension/landqueue",
         "//pushqueue/extension/vcs",
@@ -29,6 +30,7 @@ go_test(
     embed = [":controller"],
     deps = [
         "//core/errs",
+        "//entity",
         "//pushqueue/entity",
         "//pushqueue/extension/landqueue/mock",
         "//pushqueue/extension/vcs",

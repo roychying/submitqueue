@@ -26,7 +26,8 @@ import (
 	"time"
 
 	"github.com/uber-go/tally/v4"
-	"github.com/uber/submitqueue/pushqueue/entity"
+	"github.com/uber/submitqueue/entity"
+	pqentity "github.com/uber/submitqueue/pushqueue/entity"
 	"github.com/uber/submitqueue/pushqueue/extension/landqueue"
 	"github.com/uber/submitqueue/pushqueue/extension/vcs"
 	"github.com/uber/submitqueue/pushqueue/gateway/controller"
@@ -162,7 +163,7 @@ func run() error {
 // noopVCS is a placeholder VCS that errors on every operation.
 type noopVCS struct{}
 
-func (noopVCS) CheckMergeability(_ context.Context, _ entity.QueueTarget, items []entity.LandItem) ([]vcs.MergeabilityResult, error) {
+func (noopVCS) CheckMergeability(_ context.Context, _ entity.QueueTarget, items []pqentity.LandItem) ([]vcs.MergeabilityResult, error) {
 	results := make([]vcs.MergeabilityResult, len(items))
 	for i := range results {
 		results[i] = vcs.MergeabilityResult{Mergeable: false, Reason: "noop VCS: not configured"}
@@ -170,15 +171,15 @@ func (noopVCS) CheckMergeability(_ context.Context, _ entity.QueueTarget, items 
 	return results, nil
 }
 
-func (noopVCS) Prepare(_ context.Context, _ entity.QueueTarget, _ []entity.LandItem) error {
+func (noopVCS) Prepare(_ context.Context, _ entity.QueueTarget, _ []pqentity.LandItem) error {
 	return fmt.Errorf("noop VCS: not configured")
 }
 
-func (noopVCS) Push(_ context.Context, _ entity.QueueTarget, _ []entity.LandItem) (vcs.PushResult, error) {
+func (noopVCS) Push(_ context.Context, _ entity.QueueTarget, _ []pqentity.LandItem) (vcs.PushResult, error) {
 	return vcs.PushResult{}, fmt.Errorf("noop VCS: not configured")
 }
 
-func (noopVCS) Finalize(_ context.Context, _ entity.QueueTarget, _ []entity.LandItem) error {
+func (noopVCS) Finalize(_ context.Context, _ entity.QueueTarget, _ []pqentity.LandItem) error {
 	return fmt.Errorf("noop VCS: not configured")
 }
 
@@ -187,7 +188,7 @@ type noopQueue struct{}
 
 var _ landqueue.Queue = noopQueue{}
 
-func (noopQueue) Enqueue(_ context.Context, _ entity.QueueTarget, _ []entity.LandItem) error {
+func (noopQueue) Enqueue(_ context.Context, _ entity.QueueTarget, _ []pqentity.LandItem) error {
 	return nil
 }
 

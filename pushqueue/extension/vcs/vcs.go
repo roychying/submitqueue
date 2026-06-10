@@ -20,7 +20,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/uber/submitqueue/pushqueue/entity"
+	"github.com/uber/submitqueue/entity"
+	pqentity "github.com/uber/submitqueue/pushqueue/entity"
 )
 
 // ErrConflict is returned when a change fails to apply cleanly on top of the target.
@@ -80,8 +81,8 @@ type MergeabilityResult struct {
 // Push atomicity: when Push returns a non-nil error, NO change has been pushed
 // to the remote.
 type VCS interface {
-	CheckMergeability(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) ([]MergeabilityResult, error)
-	Prepare(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error
-	Push(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) (PushResult, error)
-	Finalize(ctx context.Context, target entity.QueueTarget, items []entity.LandItem) error
+	CheckMergeability(ctx context.Context, target entity.QueueTarget, items []pqentity.LandItem) ([]MergeabilityResult, error)
+	Prepare(ctx context.Context, target entity.QueueTarget, items []pqentity.LandItem) error
+	Push(ctx context.Context, target entity.QueueTarget, items []pqentity.LandItem) (PushResult, error)
+	Finalize(ctx context.Context, target entity.QueueTarget, items []pqentity.LandItem) error
 }

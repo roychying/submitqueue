@@ -62,7 +62,8 @@ import (
 	"go.uber.org/zap"
 
 	coremetrics "github.com/uber/submitqueue/core/metrics"
-	"github.com/uber/submitqueue/submitqueue/entity"
+	"github.com/uber/submitqueue/entity"
+	sqentity "github.com/uber/submitqueue/submitqueue/entity"
 	entitygithub "github.com/uber/submitqueue/submitqueue/entity/github"
 	"github.com/uber/submitqueue/submitqueue/extension/pusher"
 )
@@ -128,16 +129,21 @@ func NewPusher(params Params) pusher.Pusher {
 }
 
 // Push fulfils the pusher.Pusher contract.
-func (p *gitPusher) Push(ctx context.Context, changes []entity.Change) (ret pusher.Result, retErr error) {
+func (p *gitPusher) Push(ctx context.Context, _ entity.QueueTarget, items []pusher.PushItem) (ret pusher.Result, retErr error) {
 	op := coremetrics.Begin(p.metricsScope, "push")
 	defer func() { op.Complete(retErr) }()
 
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	if len(changes) == 0 {
+	if len(items) == 0 {
 		coremetrics.NamedCounter(p.metricsScope, "push", "empty_changes", 1)
 		return pusher.Result{}, fmt.Errorf("push called with no changes")
+	}
+
+	changes := make([]sqentity.Change, len(items))
+	for i, item := range items {
+		changes[i] = item.Change
 	}
 
 	p.logger.Debugw("starting push",
@@ -195,7 +201,7 @@ func (p *gitPusher) Push(ctx context.Context, changes []entity.Change) (ret push
 // so the caller can distinguish concurrent-push contention from other push
 // failures. baseSHA is empty when the failure happened before reset
 // produced a base.
-func (p *gitPusher) tryPush(ctx context.Context, changes []entity.Change) (string, []pusher.ChangeOutcome, error) {
+func (p *gitPusher) tryPush(ctx context.Context, changes []sqentity.Change) (string, []pusher.ChangeOutcome, error) {
 	if err := p.resetToRemote(ctx); err != nil {
 		coremetrics.NamedCounter(p.metricsScope, "push", "reset_errors", 1)
 		return "", nil, err
@@ -264,7 +270,7 @@ func (p *gitPusher) resetToRemote(ctx context.Context) error {
 
 // cherryPickAll walks the changes in order, cherry-picking every URI's head
 // SHA, and returns one ChangeOutcome per Change in the same order.
-func (p *gitPusher) cherryPickAll(ctx context.Context, changes []entity.Change) ([]pusher.ChangeOutcome, error) {
+func (p *gitPusher) cherryPickAll(ctx context.Context, changes []sqentity.Change) ([]pusher.ChangeOutcome, error) {
 	outcomes := make([]pusher.ChangeOutcome, 0, len(changes))
 	for _, change := range changes {
 		commits, err := p.cherryPickChange(ctx, change)
@@ -288,7 +294,7 @@ func (p *gitPusher) cherryPickAll(ctx context.Context, changes []entity.Change) 
 // SHA, and cherry-picks it. It returns the list of new commit SHAs
 // produced for this change (empty if every pick was a no-op because the
 // content was already on the target branch).
-func (p *gitPusher) cherryPickChange(ctx context.Context, change entity.Change) ([]string, error) {
+func (p *gitPusher) cherryPickChange(ctx context.Context, change sqentity.Change) ([]string, error) {
 	var commits []string
 	for _, uri := range change.URIs {
 		cid, err := entitygithub.ParseChangeID(uri)

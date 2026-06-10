@@ -31,6 +31,7 @@ import (
 	"github.com/uber-go/tally/v4"
 	"go.uber.org/zap/zaptest"
 
+	sharedentity "github.com/uber/submitqueue/entity"
 	"github.com/uber/submitqueue/submitqueue/entity"
 	"github.com/uber/submitqueue/submitqueue/extension/pusher"
 )
@@ -243,8 +244,8 @@ func TestPusher_Push_SingleChangeSingleURIProducesOneCommit(t *testing.T) {
 	sha := f.pushPRCommit(t, "feature/a", "hello.txt", "hello\nearth\n", "tweak hello")
 	p := f.newPusher(t)
 
-	res, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(sha)}},
+	res, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(sha)}}},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.Outcomes, 1)
@@ -275,8 +276,8 @@ func TestPusher_Push_StackedURIsProduceMultipleCommitsForOneChange(t *testing.T)
 	mustGit(t, f.authorDir, "push", "-f", "origin", "feature/stack")
 
 	p := f.newPusher(t)
-	res, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(sha1), uri(sha2)}},
+	res, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(sha1), uri(sha2)}}},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.Outcomes, 1)
@@ -298,8 +299,8 @@ func TestPusher_Push_AlreadyLandedChangeIsRebasedOut(t *testing.T) {
 	mainBeforePush := f.remoteHEAD(t)
 
 	p := f.newPusher(t)
-	res, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(sha)}},
+	res, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(sha)}}},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.Outcomes, 1)
@@ -319,9 +320,9 @@ func TestPusher_Push_MixedChangesPartiallyRebasedOut(t *testing.T) {
 	freshSHA := f.pushPRCommit(t, "feature/b", "extra.txt", "extra\n", "add extra")
 
 	p := f.newPusher(t)
-	res, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(subsumedSHA)}},
-		{URIs: []string{uri(freshSHA)}},
+	res, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(subsumedSHA)}}},
+		{Change: entity.Change{URIs: []string{uri(freshSHA)}}},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.Outcomes, 2)
@@ -349,8 +350,8 @@ func TestPusher_Push_ConflictReturnsErrConflictAndDoesNotPush(t *testing.T) {
 	conflictingSHA := f.pushPRCommitFrom(t, seedSHA, "feature/b", "hello.txt", "hello\nmars\n", "mars")
 
 	p := f.newPusher(t)
-	_, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(conflictingSHA)}},
+	_, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(conflictingSHA)}}},
 	})
 	require.Error(t, err)
 	assert.True(t, errors.Is(err, pusher.ErrConflict))
@@ -368,8 +369,8 @@ func TestPusher_Push_ResetsBetweenCalls(t *testing.T) {
 	// would fail or include unrelated changes.
 	require.NoError(t, writeFile(filepath.Join(f.checkoutDir, "stray.txt"), "leftover\n"))
 
-	res, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(sha)}},
+	res, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(sha)}}},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.Outcomes[0].CommitSHAs, 1)
@@ -388,16 +389,16 @@ func TestPusher_Push_RecoversAfterPriorConflict(t *testing.T) {
 	conflictingSHA := f.pushPRCommitFrom(t, seedSHA, "feature/b", "hello.txt", "hello\nmars\n", "mars")
 
 	p := f.newPusher(t)
-	_, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(conflictingSHA)}},
+	_, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(conflictingSHA)}}},
 	})
 	require.Error(t, err)
 
 	// A subsequent, clean push must succeed even though the prior call left
 	// a cherry-pick in progress before its rollback.
 	freshSHA := f.pushPRCommit(t, "feature/c", "extra.txt", "extra\n", "add extra")
-	res, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(freshSHA)}},
+	res, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(freshSHA)}}},
 	})
 	require.NoError(t, err)
 	assert.Equal(t, pusher.OutcomeStatusCommitted, res.Outcomes[0].Status)
@@ -408,7 +409,7 @@ func TestPusher_Push_RejectsEmptyChanges(t *testing.T) {
 	f := setupGitFixture(t)
 	p := f.newPusher(t)
 
-	_, err := p.Push(context.Background(), nil)
+	_, err := p.Push(context.Background(), sharedentity.QueueTarget{}, nil)
 	require.Error(t, err)
 	assert.False(t, errors.Is(err, pusher.ErrConflict))
 }
@@ -417,8 +418,8 @@ func TestPusher_Push_InvalidURIErrors(t *testing.T) {
 	f := setupGitFixture(t)
 	p := f.newPusher(t)
 
-	_, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{"not a uri"}},
+	_, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{"not a uri"}}},
 	})
 	require.Error(t, err)
 }
@@ -433,8 +434,8 @@ func TestPusher_Push_RetriesWhenRemoteMovesUnderUs(t *testing.T) {
 	f.installRaceHook(t, []string{raceSHA})
 
 	p := f.newPusher(t)
-	res, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(featureSHA)}},
+	res, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(featureSHA)}}},
 	})
 	require.NoError(t, err)
 	require.Len(t, res.Outcomes, 1)
@@ -469,8 +470,8 @@ func TestPusher_Push_GivesUpAfterMaxAttempts(t *testing.T) {
 		MetricsScope:    tally.NoopScope,
 		MaxPushAttempts: 2,
 	})
-	_, err := p.Push(context.Background(), []entity.Change{
-		{URIs: []string{uri(featureSHA)}},
+	_, err := p.Push(context.Background(), sharedentity.QueueTarget{}, []pusher.PushItem{
+		{Change: entity.Change{URIs: []string{uri(featureSHA)}}},
 	})
 	require.Error(t, err)
 	assert.Equal(t, 2, f.hookInvocations(t),

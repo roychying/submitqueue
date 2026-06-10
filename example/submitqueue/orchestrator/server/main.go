@@ -33,6 +33,7 @@ import (
 	genericerrs "github.com/uber/submitqueue/core/errs/generic"
 	mysqlerrs "github.com/uber/submitqueue/core/errs/mysql"
 	"github.com/uber/submitqueue/core/httpclient"
+	sharedentity "github.com/uber/submitqueue/entity"
 	extqueue "github.com/uber/submitqueue/extension/queue"
 	queueMySQL "github.com/uber/submitqueue/extension/queue/mysql"
 	"github.com/uber/submitqueue/submitqueue/core/consumer"
@@ -50,6 +51,8 @@ import (
 	githubchecker "github.com/uber/submitqueue/submitqueue/extension/mergechecker/github"
 	"github.com/uber/submitqueue/submitqueue/extension/pusher"
 	gitpusher "github.com/uber/submitqueue/submitqueue/extension/pusher/git"
+	"github.com/uber/submitqueue/submitqueue/extension/queueconfig"
+	yamlqueueconfig "github.com/uber/submitqueue/submitqueue/extension/queueconfig/yaml"
 	"github.com/uber/submitqueue/submitqueue/extension/scorer/heuristic"
 	"github.com/uber/submitqueue/submitqueue/extension/storage"
 	mysqlstorage "github.com/uber/submitqueue/submitqueue/extension/storage/mysql"
@@ -231,8 +234,14 @@ func run() error {
 	// (every build immediately succeeds) until a real backend is wired in.
 	br := buildnoop.New()
 
+	// Create queue config store
+	qcfg, err := newQueueConfigStore(logger)
+	if err != nil {
+		return fmt.Errorf("failed to create queue config store: %w", err)
+	}
+
 	// Register controllers
-	if err := registerControllers(c, logger.Sugar(), scope, registry, mc, cp, psh, br, cnt, store, changeStore); err != nil {
+	if err := registerControllers(c, logger.Sugar(), scope, registry, mc, cp, psh, br, cnt, store, changeStore, qcfg); err != nil {
 		return err
 	}
 
@@ -425,7 +434,7 @@ func newTopicRegistry(q extqueue.Queue, subscriberName string) (consumer.TopicRe
 //                                        │        │                       │
 //                                        └────────┴───────────────────────┘
 
-func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope tally.Scope, registry consumer.TopicRegistry, mc mergechecker.MergeChecker, cp changeprovider.ChangeProvider, psh pusher.Pusher, br buildrunner.BuildRunner, cnt counter.Counter, store storage.Storage, changeStore changestore.ChangeStore) error {
+func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope tally.Scope, registry consumer.TopicRegistry, mc mergechecker.MergeChecker, cp changeprovider.ChangeProvider, psh pusher.Pusher, br buildrunner.BuildRunner, cnt counter.Counter, store storage.Storage, changeStore changestore.ChangeStore, qcfg queueconfig.Store) error {
 	requestController := start.NewController(
 		logger,
 		scope,
@@ -551,6 +560,7 @@ func registerControllers(c consumer.Consumer, logger *zap.SugaredLogger, scope t
 		store,
 		registry,
 		psh,
+		qcfg,
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -675,6 +685,18 @@ func newPusher(logger *zap.Logger, scope tally.Scope) (pusher.Pusher, error) {
 	}), nil
 }
 
+// newQueueConfigStore loads queue configuration from a YAML file pointed to by
+// QUEUE_CONFIG_PATH. If the env var is not set, returns an empty store — the
+// merge controller will fail to resolve any queue target.
+func newQueueConfigStore(logger *zap.Logger) (queueconfig.Store, error) {
+	path := os.Getenv("QUEUE_CONFIG_PATH")
+	if path == "" {
+		logger.Warn("QUEUE_CONFIG_PATH not set; merge controller will fail to resolve queue targets")
+		return yamlqueueconfig.Store{}, nil
+	}
+	return yamlqueueconfig.NewStore(path)
+}
+
 // noopPusher is a fallback Pusher used when PUSHER_CHECKOUT_PATH is not
 // configured. It returns an error on every Push so the merge controller
 // (which treats non-ErrConflict errors as transient and nacks the message)
@@ -683,6 +705,6 @@ func newPusher(logger *zap.Logger, scope tally.Scope) (pusher.Pusher, error) {
 // that don't run the merge step.
 type noopPusher struct{}
 
-func (noopPusher) Push(_ context.Context, _ []entity.Change) (pusher.Result, error) {
+func (noopPusher) Push(_ context.Context, _ sharedentity.QueueTarget, _ []pusher.PushItem) (pusher.Result, error) {
 	return pusher.Result{}, fmt.Errorf("pusher not configured: set PUSHER_CHECKOUT_PATH to enable pushing")
 }

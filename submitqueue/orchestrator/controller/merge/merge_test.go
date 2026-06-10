@@ -26,12 +26,14 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"github.com/uber/submitqueue/core/errs"
+	sharedentity "github.com/uber/submitqueue/entity"
 	"github.com/uber/submitqueue/entity/queue"
 	queuemock "github.com/uber/submitqueue/extension/queue/mock"
 	"github.com/uber/submitqueue/submitqueue/core/consumer"
 	"github.com/uber/submitqueue/submitqueue/entity"
 	"github.com/uber/submitqueue/submitqueue/extension/pusher"
 	pushermock "github.com/uber/submitqueue/submitqueue/extension/pusher/mock"
+	queueconfigmock "github.com/uber/submitqueue/submitqueue/extension/queueconfig/mock"
 	storagemock "github.com/uber/submitqueue/submitqueue/extension/storage/mock"
 )
 
@@ -76,6 +78,7 @@ func TestNewController(t *testing.T) {
 		store,
 		newRegistry(t, ctrl, nil),
 		pushermock.NewMockPusher(ctrl),
+		queueconfigmock.NewMockStore(ctrl),
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -121,10 +124,10 @@ func TestController_Process_SuccessfulMerge(t *testing.T) {
 	store.EXPECT().GetRequestStore().Return(requestStore).AnyTimes()
 
 	mockPusher := pushermock.NewMockPusher(ctrl)
-	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, changes []entity.Change) (pusher.Result, error) {
-			require.Len(t, changes, 1)
-			assert.Equal(t, change, changes[0])
+	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ sharedentity.QueueTarget, items []pusher.PushItem) (pusher.Result, error) {
+			require.Len(t, items, 1)
+			assert.Equal(t, change, items[0].Change)
 			return pusher.Result{Outcomes: []pusher.ChangeOutcome{{
 				Change:     change,
 				Status:     pusher.OutcomeStatusCommitted,
@@ -133,12 +136,18 @@ func TestController_Process_SuccessfulMerge(t *testing.T) {
 		},
 	)
 
+	mockQueueConfig := queueconfigmock.NewMockStore(ctrl)
+	mockQueueConfig.EXPECT().Get(gomock.Any(), "test-queue").Return(entity.QueueConfig{
+		Name: "test-queue", VCSAddress: "git@github.com:uber/repo.git", Target: "main",
+	}, nil).AnyTimes()
+
 	c := NewController(
 		zaptest.NewLogger(t).Sugar(),
 		tally.NoopScope,
 		store,
 		newRegistry(t, ctrl, nil),
 		mockPusher,
+		mockQueueConfig,
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -182,13 +191,17 @@ func TestController_Process_PassesAllChangesInBatchOrder(t *testing.T) {
 	store.EXPECT().GetRequestStore().Return(requestStore).AnyTimes()
 
 	mockPusher := pushermock.NewMockPusher(ctrl)
-	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, got []entity.Change) (pusher.Result, error) {
+	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ sharedentity.QueueTarget, items []pusher.PushItem) (pusher.Result, error) {
+			got := make([]entity.Change, len(items))
+			for i, item := range items {
+				got[i] = item.Change
+			}
 			assert.Equal(t, changes, got, "changes must be in batch.Contains order")
-			outcomes := make([]pusher.ChangeOutcome, len(got))
-			for i, ch := range got {
+			outcomes := make([]pusher.ChangeOutcome, len(items))
+			for i, item := range items {
 				outcomes[i] = pusher.ChangeOutcome{
-					Change:     ch,
+					Change:     item.Change,
 					Status:     pusher.OutcomeStatusCommitted,
 					CommitSHAs: []string{fmt.Sprintf("sha-%d", i)},
 				}
@@ -197,12 +210,18 @@ func TestController_Process_PassesAllChangesInBatchOrder(t *testing.T) {
 		},
 	)
 
+	mockQueueConfig := queueconfigmock.NewMockStore(ctrl)
+	mockQueueConfig.EXPECT().Get(gomock.Any(), "test-queue").Return(entity.QueueConfig{
+		Name: "test-queue", VCSAddress: "git@github.com:uber/repo.git", Target: "main",
+	}, nil).AnyTimes()
+
 	c := NewController(
 		zaptest.NewLogger(t).Sugar(),
 		tally.NoopScope,
 		store,
 		newRegistry(t, ctrl, nil),
 		mockPusher,
+		mockQueueConfig,
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -239,10 +258,15 @@ func TestController_Process_PushConflictMarksBatchFailed(t *testing.T) {
 	store.EXPECT().GetRequestStore().Return(requestStore).AnyTimes()
 
 	mockPusher := pushermock.NewMockPusher(ctrl)
-	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any()).Return(
+	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		pusher.Result{},
 		fmt.Errorf("apply: %w", pusher.ErrConflict),
 	)
+
+	mockQueueConfig := queueconfigmock.NewMockStore(ctrl)
+	mockQueueConfig.EXPECT().Get(gomock.Any(), "test-queue").Return(entity.QueueConfig{
+		Name: "test-queue", VCSAddress: "git@github.com:uber/repo.git", Target: "main",
+	}, nil).AnyTimes()
 
 	c := NewController(
 		zaptest.NewLogger(t).Sugar(),
@@ -250,6 +274,7 @@ func TestController_Process_PushConflictMarksBatchFailed(t *testing.T) {
 		store,
 		newRegistry(t, ctrl, nil),
 		mockPusher,
+		mockQueueConfig,
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -285,10 +310,15 @@ func TestController_Process_PushInfraFailureReturnsError(t *testing.T) {
 	store.EXPECT().GetRequestStore().Return(requestStore).AnyTimes()
 
 	mockPusher := pushermock.NewMockPusher(ctrl)
-	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any()).Return(
+	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		pusher.Result{},
 		fmt.Errorf("ssh: connection refused"),
 	)
+
+	mockQueueConfig := queueconfigmock.NewMockStore(ctrl)
+	mockQueueConfig.EXPECT().Get(gomock.Any(), "test-queue").Return(entity.QueueConfig{
+		Name: "test-queue", VCSAddress: "git@github.com:uber/repo.git", Target: "main",
+	}, nil).AnyTimes()
 
 	c := NewController(
 		zaptest.NewLogger(t).Sugar(),
@@ -296,6 +326,7 @@ func TestController_Process_PushInfraFailureReturnsError(t *testing.T) {
 		store,
 		newRegistry(t, ctrl, nil),
 		mockPusher,
+		mockQueueConfig,
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -337,6 +368,7 @@ func TestController_Process_TerminalBatchSkipsPushButFansOut(t *testing.T) {
 				store,
 				newRegistry(t, ctrl, nil),
 				mockPusher,
+				queueconfigmock.NewMockStore(ctrl),
 				consumer.TopicKeyMerge,
 				"orchestrator-merge",
 			)
@@ -387,6 +419,7 @@ func TestController_Process_CancellingShortCircuit(t *testing.T) {
 		store,
 		registry,
 		mockPusher,
+		queueconfigmock.NewMockStore(ctrl),
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -412,6 +445,7 @@ func TestController_Process_BatchStoreGetFailureNotRetryable(t *testing.T) {
 		store,
 		newRegistry(t, ctrl, nil),
 		pushermock.NewMockPusher(ctrl),
+		queueconfigmock.NewMockStore(ctrl),
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -451,6 +485,7 @@ func TestController_Process_RequestStoreFailurePropagates(t *testing.T) {
 		store,
 		newRegistry(t, ctrl, nil),
 		pushermock.NewMockPusher(ctrl),
+		queueconfigmock.NewMockStore(ctrl),
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)
@@ -487,11 +522,16 @@ func TestController_Process_PublishFailureSurfaces(t *testing.T) {
 	store.EXPECT().GetRequestStore().Return(requestStore).AnyTimes()
 
 	mockPusher := pushermock.NewMockPusher(ctrl)
-	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any()).Return(
+	mockPusher.EXPECT().Push(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		pusher.Result{Outcomes: []pusher.ChangeOutcome{{
 			Status: pusher.OutcomeStatusCommitted, CommitSHAs: []string{"abc"},
 		}}}, nil,
 	)
+
+	mockQueueConfig := queueconfigmock.NewMockStore(ctrl)
+	mockQueueConfig.EXPECT().Get(gomock.Any(), "test-queue").Return(entity.QueueConfig{
+		Name: "test-queue", VCSAddress: "git@github.com:uber/repo.git", Target: "main",
+	}, nil).AnyTimes()
 
 	c := NewController(
 		zaptest.NewLogger(t).Sugar(),
@@ -499,6 +539,7 @@ func TestController_Process_PublishFailureSurfaces(t *testing.T) {
 		store,
 		newRegistry(t, ctrl, fmt.Errorf("queue down")),
 		mockPusher,
+		mockQueueConfig,
 		consumer.TopicKeyMerge,
 		"orchestrator-merge",
 	)

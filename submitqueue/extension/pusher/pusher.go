@@ -20,7 +20,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/uber/submitqueue/submitqueue/entity"
+	"github.com/uber/submitqueue/entity"
+	sqentity "github.com/uber/submitqueue/submitqueue/entity"
 )
 
 // ErrConflict is returned by a Pusher when one of the changes fails to apply
@@ -46,10 +47,18 @@ const (
 	OutcomeStatusAlreadyExisted OutcomeStatus = "already_existed"
 )
 
+// PushItem pairs a code change with the landing strategy to apply.
+type PushItem struct {
+	// Change is the code change to land.
+	Change sqentity.Change
+	// Strategy is the landing strategy for this change.
+	Strategy sqentity.RequestLandStrategy
+}
+
 // ChangeOutcome describes what happened to a single Change inside a Push.
 type ChangeOutcome struct {
 	// Change is the input change this outcome corresponds to.
-	Change entity.Change
+	Change sqentity.Change
 	// Status describes whether the change produced commits or was already
 	// present on the target branch.
 	Status OutcomeStatus
@@ -84,5 +93,5 @@ type Result struct {
 type Pusher interface {
 	// Push applies changes onto the target branch and pushes the resulting
 	// commits. See the type-level docs for the atomicity contract.
-	Push(ctx context.Context, changes []entity.Change) (Result, error)
+	Push(ctx context.Context, target entity.QueueTarget, items []PushItem) (Result, error)
 }

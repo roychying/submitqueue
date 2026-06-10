@@ -5,5 +5,8 @@ go_library(
     srcs = ["pusher.go"],
     importpath = "github.com/uber/submitqueue/submitqueue/extension/pusher",
     visibility = ["//visibility:public"],
-    deps = ["//submitqueue/entity"],
+    deps = [
+        "//entity",
+        "//submitqueue/entity",
+    ],
 )

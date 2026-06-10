@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/uber/submitqueue/example/pushqueue/gateway/server",
     visibility = ["//visibility:private"],
     deps = [
+        "//entity",
         "//pushqueue/entity",
         "//pushqueue/extension/landqueue",
         "//pushqueue/extension/vcs",

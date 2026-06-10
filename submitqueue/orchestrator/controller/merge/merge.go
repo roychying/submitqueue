@@ -23,10 +23,12 @@ import (
 	"go.uber.org/zap"
 
 	coremetrics "github.com/uber/submitqueue/core/metrics"
+	sharedentity "github.com/uber/submitqueue/entity"
 	entityqueue "github.com/uber/submitqueue/entity/queue"
 	"github.com/uber/submitqueue/submitqueue/core/consumer"
 	"github.com/uber/submitqueue/submitqueue/entity"
 	"github.com/uber/submitqueue/submitqueue/extension/pusher"
+	"github.com/uber/submitqueue/submitqueue/extension/queueconfig"
 	"github.com/uber/submitqueue/submitqueue/extension/storage"
 )
 
@@ -45,6 +47,7 @@ type Controller struct {
 	store         storage.Storage
 	registry      consumer.TopicRegistry
 	pusher        pusher.Pusher
+	queueConfig   queueconfig.Store
 	topicKey      consumer.TopicKey
 	consumerGroup string
 }
@@ -59,6 +62,7 @@ func NewController(
 	store storage.Storage,
 	registry consumer.TopicRegistry,
 	pusherImpl pusher.Pusher,
+	queueConfig queueconfig.Store,
 	topicKey consumer.TopicKey,
 	consumerGroup string,
 ) *Controller {
@@ -68,6 +72,7 @@ func NewController(
 		store:         store,
 		registry:      registry,
 		pusher:        pusherImpl,
+		queueConfig:   queueConfig,
 		topicKey:      topicKey,
 		consumerGroup: consumerGroup,
 	}
@@ -120,13 +125,19 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) (r
 		return c.fanout(ctx, batch.ID, batch.Queue)
 	}
 
-	changes, err := c.collectChanges(ctx, batch)
+	changes, err := c.collectPushItems(ctx, batch)
 	if err != nil {
 		coremetrics.NamedCounter(c.metricsScope, "process", "request_load_errors", 1)
-		return fmt.Errorf("failed to collect changes for batch %s: %w", batch.ID, err)
+		return fmt.Errorf("failed to collect push items for batch %s: %w", batch.ID, err)
 	}
 
-	pushRes, pushErr := c.pusher.Push(ctx, changes)
+	target, err := c.resolveQueueTarget(ctx, batch.Queue)
+	if err != nil {
+		coremetrics.NamedCounter(c.metricsScope, "process", "queue_config_errors", 1)
+		return fmt.Errorf("failed to resolve queue target for batch %s: %w", batch.ID, err)
+	}
+
+	pushRes, pushErr := c.pusher.Push(ctx, target, changes)
 
 	var newState entity.BatchState
 	switch {
@@ -160,19 +171,36 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) (r
 	return c.fanout(ctx, batch.ID, batch.Queue)
 }
 
-// collectChanges loads each request in batch.Contains and returns its
-// Change. The result preserves batch.Contains order so the Pusher applies
-// the changes in the same order the requests were batched.
-func (c *Controller) collectChanges(ctx context.Context, batch entity.Batch) ([]entity.Change, error) {
-	changes := make([]entity.Change, 0, len(batch.Contains))
+// collectPushItems loads each request in batch.Contains and returns a
+// PushItem for each. The result preserves batch.Contains order so the Pusher
+// applies the changes in the same order the requests were batched.
+func (c *Controller) collectPushItems(ctx context.Context, batch entity.Batch) ([]pusher.PushItem, error) {
+	items := make([]pusher.PushItem, 0, len(batch.Contains))
 	for _, requestID := range batch.Contains {
 		request, err := c.store.GetRequestStore().Get(ctx, requestID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get request %s: %w", requestID, err)
 		}
-		changes = append(changes, request.Change)
+		items = append(items, pusher.PushItem{
+			Change:   request.Change,
+			Strategy: request.LandStrategy,
+		})
 	}
-	return changes, nil
+	return items, nil
+}
+
+// resolveQueueTarget looks up the queue configuration and returns a QueueTarget
+// for the Pusher to use as the landing destination.
+func (c *Controller) resolveQueueTarget(ctx context.Context, queueName string) (sharedentity.QueueTarget, error) {
+	cfg, err := c.queueConfig.Get(ctx, queueName)
+	if err != nil {
+		return sharedentity.QueueTarget{}, fmt.Errorf("resolve queue target %q: %w", queueName, err)
+	}
+	return sharedentity.QueueTarget{
+		Name:    cfg.Name,
+		Address: cfg.VCSAddress,
+		Target:  cfg.Target,
+	}, nil
 }
 
 // fanout publishes the batch ID to conclude (so requests are updated) and

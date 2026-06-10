@@ -14,17 +14,6 @@
 
 package entity
 
-// QueueTarget identifies a landing destination in a version control system.
-// Defined locally in pushqueue; consolidated into shared entity/ by Chunk 2.
-type QueueTarget struct {
-	// Name is an optional logical identifier for correlation and config lookup.
-	Name string
-	// Address is the VCS repository address (remote URL, depot path).
-	Address string
-	// Target is the landing ref (branch name, stream path).
-	Target string
-}
-
 // LandStrategy defines the possible landing methods for a code change.
 type LandStrategy string
 

@@ -22,7 +22,8 @@ import (
 	"github.com/uber-go/tally/v4"
 	"github.com/uber/submitqueue/core/errs"
 	"github.com/uber/submitqueue/core/metrics"
-	"github.com/uber/submitqueue/pushqueue/entity"
+	"github.com/uber/submitqueue/entity"
+	pqentity "github.com/uber/submitqueue/pushqueue/entity"
 	"github.com/uber/submitqueue/pushqueue/extension/landqueue"
 	"github.com/uber/submitqueue/pushqueue/extension/vcs"
 	pb "github.com/uber/submitqueue/pushqueue/gateway/protopb"
@@ -62,9 +63,9 @@ func (c *LandController) Land(ctx context.Context, req *pb.LandRequest) (resp *p
 		Target:  req.Queue.GetTarget(),
 	}
 
-	items := make([]entity.LandItem, 0, len(req.Items))
+	items := make([]pqentity.LandItem, 0, len(req.Items))
 	for _, item := range req.Items {
-		items = append(items, entity.LandItem{
+		items = append(items, pqentity.LandItem{
 			URIs:     item.GetUris(),
 			Strategy: resolveStrategy(item.GetStrategy()),
 		})
@@ -121,9 +122,9 @@ func (c *LandController) CheckMergeability(ctx context.Context, req *pb.CheckMer
 		Target:  req.Queue.GetTarget(),
 	}
 
-	items := make([]entity.LandItem, 0, len(req.Items))
+	items := make([]pqentity.LandItem, 0, len(req.Items))
 	for _, item := range req.Items {
-		items = append(items, entity.LandItem{
+		items = append(items, pqentity.LandItem{
 			URIs:     item.GetUris(),
 			Strategy: resolveStrategy(item.GetStrategy()),
 		})
@@ -152,16 +153,16 @@ func (c *LandController) CheckMergeability(ctx context.Context, req *pb.CheckMer
 	}, nil
 }
 
-func resolveStrategy(s pb.Strategy) entity.LandStrategy {
+func resolveStrategy(s pb.Strategy) pqentity.LandStrategy {
 	switch s {
 	case pb.Strategy_STRATEGY_REBASE:
-		return entity.LandStrategyRebase
+		return pqentity.LandStrategyRebase
 	case pb.Strategy_STRATEGY_SQUASH_REBASE:
-		return entity.LandStrategySquashRebase
+		return pqentity.LandStrategySquashRebase
 	case pb.Strategy_STRATEGY_MERGE:
-		return entity.LandStrategyMerge
+		return pqentity.LandStrategyMerge
 	default:
-		return entity.LandStrategyUnknown
+		return pqentity.LandStrategyUnknown
 	}
 }
 
