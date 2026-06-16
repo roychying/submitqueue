@@ -21,14 +21,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/uber-go/tally/v4"
-	"github.com/uber/submitqueue/core/errs"
+	"github.com/uber-go/tally"
+	pb "github.com/uber/submitqueue/api/submitqueue/gateway/protopb"
+	"github.com/uber/submitqueue/platform/errs"
 	"github.com/uber/submitqueue/submitqueue/entity"
 	"github.com/uber/submitqueue/submitqueue/extension/queueconfig"
 	qcmock "github.com/uber/submitqueue/submitqueue/extension/queueconfig/mock"
 	"github.com/uber/submitqueue/submitqueue/extension/storage"
 	storagemock "github.com/uber/submitqueue/submitqueue/extension/storage/mock"
-	pb "github.com/uber/submitqueue/submitqueue/gateway/protopb"
 	"go.uber.org/mock/gomock"
 	"go.uber.org/zap"
 )
@@ -46,6 +46,7 @@ func TestList_ReturnsSummaries(t *testing.T) {
 			assert.Equal(t, int64(100), opts.StartTimeMs)
 			assert.Equal(t, int64(200), opts.EndTimeMs)
 			assert.Equal(t, []entity.RequestStatus{entity.RequestStatusBuilding, entity.RequestStatusLanded}, opts.Statuses)
+			assert.Equal(t, storage.RequestSummarySortAdmittedAsc, opts.Sort)
 			assert.Equal(t, defaultListPageSize, opts.Limit)
 			require.Nil(t, opts.Cursor)
 			return storage.RequestSummaryListResult{
@@ -88,6 +89,31 @@ func TestList_ReturnsSummaries(t *testing.T) {
 	assert.NotEmpty(t, resp.NextPageToken)
 }
 
+func TestList_UsesRequestedSort(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	qcs := qcmock.NewMockStore(ctrl)
+	qcs.EXPECT().Get(gomock.Any(), "q").Return(entity.QueueConfig{}, nil)
+
+	summaryStore := storagemock.NewMockRequestSummaryStore(ctrl)
+	summaryStore.EXPECT().List(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, opts storage.RequestSummaryListOptions) (storage.RequestSummaryListResult, error) {
+			assert.Equal(t, storage.RequestSummarySortAdmittedDesc, opts.Sort)
+			return storage.RequestSummaryListResult{}, nil
+		},
+	)
+
+	controller := NewListController(zap.NewNop().Sugar(), tally.NoopScope, summaryStore, qcs)
+	_, err := controller.List(context.Background(), &pb.ListRequest{
+		Queue:       "q",
+		StartTimeMs: 100,
+		EndTimeMs:   200,
+		Sort:        pb.ListSort_LIST_SORTED_ADMITTED_DESC,
+	})
+
+	require.NoError(t, err)
+}
+
 func TestList_UsesPageTokenCursor(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
@@ -99,6 +125,7 @@ func TestList_UsesPageTokenCursor(t *testing.T) {
 		StartTimeMs: 100,
 		EndTimeMs:   200,
 		Statuses:    []string{"building"},
+		Sort:        storage.RequestSummarySortAdmittedAsc,
 		StartedAtMs: 150,
 		RequestID:   "q/2",
 	})
@@ -110,6 +137,7 @@ func TestList_UsesPageTokenCursor(t *testing.T) {
 			require.NotNil(t, opts.Cursor)
 			assert.Equal(t, int64(150), opts.Cursor.StartedAtMs)
 			assert.Equal(t, "q/2", opts.Cursor.RequestID)
+			assert.Equal(t, storage.RequestSummarySortAdmittedAsc, opts.Sort)
 			assert.Equal(t, 10, opts.Limit)
 			return storage.RequestSummaryListResult{}, nil
 		},
@@ -153,6 +181,11 @@ func TestList_Errors(t *testing.T) {
 		{
 			name:        "unknown status",
 			req:         &pb.ListRequest{Queue: "q", StartTimeMs: 1, EndTimeMs: 2, Statuses: []string{"wat"}},
+			wantInvalid: true,
+		},
+		{
+			name:        "unknown sort",
+			req:         &pb.ListRequest{Queue: "q", StartTimeMs: 1, EndTimeMs: 2, Sort: pb.ListSort(99)},
 			wantInvalid: true,
 		},
 		{
@@ -206,6 +239,7 @@ func TestList_RejectsMismatchedPageToken(t *testing.T) {
 		Queue:       "other",
 		StartTimeMs: 1,
 		EndTimeMs:   2,
+		Sort:        storage.RequestSummarySortAdmittedAsc,
 	})
 	require.NoError(t, err)
 
@@ -216,6 +250,35 @@ func TestList_RejectsMismatchedPageToken(t *testing.T) {
 		Queue:       "q",
 		StartTimeMs: 1,
 		EndTimeMs:   2,
+		PageToken:   token,
+	})
+
+	require.Error(t, err)
+	assert.True(t, IsInvalidRequest(err))
+}
+
+func TestList_RejectsMismatchedPageTokenSort(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	qcs := qcmock.NewMockStore(ctrl)
+	qcs.EXPECT().Get(gomock.Any(), "q").Return(entity.QueueConfig{}, nil)
+
+	token, err := encodeListPageToken(listPageToken{
+		Queue:       "q",
+		StartTimeMs: 1,
+		EndTimeMs:   2,
+		Sort:        storage.RequestSummarySortAdmittedDesc,
+	})
+	require.NoError(t, err)
+
+	summaryStore := storagemock.NewMockRequestSummaryStore(ctrl)
+	controller := NewListController(zap.NewNop().Sugar(), tally.NoopScope, summaryStore, qcs)
+
+	_, err = controller.List(context.Background(), &pb.ListRequest{
+		Queue:       "q",
+		StartTimeMs: 1,
+		EndTimeMs:   2,
+		Sort:        pb.ListSort_LIST_SORTED_ADMITTED_ASC,
 		PageToken:   token,
 	})
 

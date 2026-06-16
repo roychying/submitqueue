@@ -77,6 +77,10 @@ func (c *ListController) List(ctx context.Context, req *pb.ListRequest) (*pb.Lis
 	if err != nil {
 		return nil, fmt.Errorf("ListController invalid status filter: %w", err)
 	}
+	sortMode, err := requestSummarySort(req.Sort)
+	if err != nil {
+		return nil, fmt.Errorf("ListController invalid sort: %w", err)
+	}
 
 	if _, err := c.queueConfigs.Get(ctx, req.Queue); err != nil {
 		if errors.Is(err, queueconfig.ErrNotFound) {
@@ -97,7 +101,7 @@ func (c *ListController) List(ctx context.Context, req *pb.ListRequest) (*pb.Lis
 	if err != nil {
 		return nil, fmt.Errorf("ListController invalid page token: %w", err)
 	}
-	if cursor != nil && !cursor.matches(req.Queue, req.StartTimeMs, req.EndTimeMs, statuses) {
+	if cursor != nil && !cursor.matches(req.Queue, req.StartTimeMs, req.EndTimeMs, statuses, sortMode) {
 		return nil, fmt.Errorf("ListController page token does not match query: %w", ErrInvalidRequest)
 	}
 
@@ -106,6 +110,7 @@ func (c *ListController) List(ctx context.Context, req *pb.ListRequest) (*pb.Lis
 		StartTimeMs: req.StartTimeMs,
 		EndTimeMs:   req.EndTimeMs,
 		Statuses:    statuses,
+		Sort:        sortMode,
 		Cursor:      cursorStorage(cursor),
 		Limit:       limit,
 	})
@@ -125,6 +130,7 @@ func (c *ListController) List(ctx context.Context, req *pb.ListRequest) (*pb.Lis
 			StartTimeMs: req.StartTimeMs,
 			EndTimeMs:   req.EndTimeMs,
 			Statuses:    statusesToStrings(statuses),
+			Sort:        sortMode,
 			StartedAtMs: result.NextCursor.StartedAtMs,
 			RequestID:   result.NextCursor.RequestID,
 		})
@@ -144,18 +150,20 @@ func (c *ListController) List(ctx context.Context, req *pb.ListRequest) (*pb.Lis
 }
 
 type listPageToken struct {
-	Queue       string   `json:"queue"`
-	StartTimeMs int64    `json:"start_time_ms"`
-	EndTimeMs   int64    `json:"end_time_ms"`
-	Statuses    []string `json:"statuses"`
-	StartedAtMs int64    `json:"started_at_ms"`
-	RequestID   string   `json:"request_id"`
+	Queue       string                     `json:"queue"`
+	StartTimeMs int64                      `json:"start_time_ms"`
+	EndTimeMs   int64                      `json:"end_time_ms"`
+	Statuses    []string                   `json:"statuses"`
+	Sort        storage.RequestSummarySort `json:"sort"`
+	StartedAtMs int64                      `json:"started_at_ms"`
+	RequestID   string                     `json:"request_id"`
 }
 
-func (t listPageToken) matches(queue string, startTimeMs, endTimeMs int64, statuses []entity.RequestStatus) bool {
+func (t listPageToken) matches(queue string, startTimeMs, endTimeMs int64, statuses []entity.RequestStatus, sortMode storage.RequestSummarySort) bool {
 	return t.Queue == queue &&
 		t.StartTimeMs == startTimeMs &&
 		t.EndTimeMs == endTimeMs &&
+		t.Sort == sortMode &&
 		equalStrings(t.Statuses, statusesToStrings(statuses))
 }
 
@@ -205,6 +213,17 @@ func canonicalStatuses(raw []string) ([]entity.RequestStatus, error) {
 	}
 	sort.Slice(statuses, func(i, j int) bool { return statuses[i] < statuses[j] })
 	return statuses, nil
+}
+
+func requestSummarySort(sort pb.ListSort) (storage.RequestSummarySort, error) {
+	switch sort {
+	case pb.ListSort_LIST_SORTED_UNSPECIFIED, pb.ListSort_LIST_SORTED_ADMITTED_ASC:
+		return storage.RequestSummarySortAdmittedAsc, nil
+	case pb.ListSort_LIST_SORTED_ADMITTED_DESC:
+		return storage.RequestSummarySortAdmittedDesc, nil
+	default:
+		return "", fmt.Errorf("unknown sort %v: %w", sort, ErrInvalidRequest)
+	}
 }
 
 func statusesToStrings(statuses []entity.RequestStatus) []string {

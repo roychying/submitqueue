@@ -18,7 +18,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/uber/submitqueue/submitqueue/entity"
+	"github.com/uber/submitqueue/submitqueue/extension/storage"
 )
 
 func TestMergeSummary_GuardsWinner(t *testing.T) {
@@ -82,4 +84,51 @@ func TestMergeSummary_GuardsWinner(t *testing.T) {
 	assert.Equal(t, "boom", higherTerminal.summary.LastError)
 	assert.Equal(t, map[string]string{"winner": "true"}, higherTerminal.summary.Metadata)
 	assert.Equal(t, []string{"change"}, higherTerminal.summary.ChangeURIs)
+}
+
+func TestListSortSQL(t *testing.T) {
+	tests := []struct {
+		name             string
+		sort             storage.RequestSummarySort
+		wantCursorClause string
+		wantOrderBy      string
+		wantErr          bool
+	}{
+		{
+			name:             "default admitted asc",
+			wantCursorClause: "(started_at_ms > ? OR (started_at_ms = ? AND request_id > ?))",
+			wantOrderBy:      " ORDER BY started_at_ms ASC, request_id ASC",
+		},
+		{
+			name:             "admitted asc",
+			sort:             storage.RequestSummarySortAdmittedAsc,
+			wantCursorClause: "(started_at_ms > ? OR (started_at_ms = ? AND request_id > ?))",
+			wantOrderBy:      " ORDER BY started_at_ms ASC, request_id ASC",
+		},
+		{
+			name:             "admitted desc",
+			sort:             storage.RequestSummarySortAdmittedDesc,
+			wantCursorClause: "(started_at_ms < ? OR (started_at_ms = ? AND request_id < ?))",
+			wantOrderBy:      " ORDER BY started_at_ms DESC, request_id DESC",
+		},
+		{
+			name:    "unknown",
+			sort:    storage.RequestSummarySort("unknown"),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cursorClause, orderBy, err := listSortSQL(tt.sort)
+
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantCursorClause, cursorClause)
+			assert.Equal(t, tt.wantOrderBy, orderBy)
+		})
+	}
 }

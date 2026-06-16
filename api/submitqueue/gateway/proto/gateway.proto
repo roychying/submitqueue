@@ -100,6 +100,16 @@ message StatusResponse {
     map<string, string> metadata = 3;
 }
 
+// ListSort defines supported deterministic orderings for List.
+enum ListSort {
+    // Server default: LIST_SORTED_ADMITTED_ASC.
+    LIST_SORTED_UNSPECIFIED = 0;
+    // FIFO/admission order.
+    LIST_SORTED_ADMITTED_ASC = 1;
+    // Newest admissions first.
+    LIST_SORTED_ADMITTED_DESC = 2;
+}
+
 // ListRequest defines a request to list queue requests whose lifecycles overlap a time window.
 message ListRequest {
     // Name of the queue whose requests should be returned.
@@ -114,6 +124,8 @@ message ListRequest {
     int32 page_size = 5;
     // Opaque token returned by a previous List response.
     string page_token = 6;
+    // Sort order for deterministic pagination. Unspecified defaults to FIFO/admission order.
+    ListSort sort = 7;
 }
 
 // RequestSummary is the current gateway-owned view of one request for queue-listing UX.

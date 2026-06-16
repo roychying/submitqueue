@@ -22,6 +22,16 @@ import (
 	"github.com/uber/submitqueue/submitqueue/entity"
 )
 
+// RequestSummarySort defines supported deterministic orderings for request-summary pages.
+type RequestSummarySort string
+
+const (
+	// RequestSummarySortAdmittedAsc returns FIFO/admission order.
+	RequestSummarySortAdmittedAsc RequestSummarySort = "admitted_asc"
+	// RequestSummarySortAdmittedDesc returns newest admissions first.
+	RequestSummarySortAdmittedDesc RequestSummarySort = "admitted_desc"
+)
+
 // RequestSummaryStore maintains the gateway-owned read model for queue/time-window listing.
 type RequestSummaryStore interface {
 	// UpsertFromLog incrementally merges one request-log event into the summary read model.
@@ -37,11 +47,12 @@ type RequestSummaryListOptions struct {
 	StartTimeMs int64
 	EndTimeMs   int64
 	Statuses    []entity.RequestStatus
+	Sort        RequestSummarySort
 	Cursor      *RequestSummaryCursor
 	Limit       int
 }
 
-// RequestSummaryCursor is the stable cursor position under newest-started-first ordering.
+// RequestSummaryCursor is the stable cursor position under the selected admission-time ordering.
 type RequestSummaryCursor struct {
 	StartedAtMs int64
 	RequestID   string

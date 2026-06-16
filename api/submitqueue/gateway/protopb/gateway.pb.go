@@ -38,6 +38,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ListSort defines supported deterministic orderings for List.
+type ListSort int32
+
+const (
+	// Server default: LIST_SORTED_ADMITTED_ASC.
+	ListSort_LIST_SORTED_UNSPECIFIED ListSort = 0
+	// FIFO/admission order.
+	ListSort_LIST_SORTED_ADMITTED_ASC ListSort = 1
+	// Newest admissions first.
+	ListSort_LIST_SORTED_ADMITTED_DESC ListSort = 2
+)
+
+// Enum value maps for ListSort.
+var (
+	ListSort_name = map[int32]string{
+		0: "LIST_SORTED_UNSPECIFIED",
+		1: "LIST_SORTED_ADMITTED_ASC",
+		2: "LIST_SORTED_ADMITTED_DESC",
+	}
+	ListSort_value = map[string]int32{
+		"LIST_SORTED_UNSPECIFIED":   0,
+		"LIST_SORTED_ADMITTED_ASC":  1,
+		"LIST_SORTED_ADMITTED_DESC": 2,
+	}
+)
+
+func (x ListSort) Enum() *ListSort {
+	p := new(ListSort)
+	*p = x
+	return p
+}
+
+func (x ListSort) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ListSort) Descriptor() protoreflect.EnumDescriptor {
+	return file_gateway_proto_enumTypes[0].Descriptor()
+}
+
+func (ListSort) Type() protoreflect.EnumType {
+	return &file_gateway_proto_enumTypes[0]
+}
+
+func (x ListSort) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ListSort.Descriptor instead.
+func (ListSort) EnumDescriptor() ([]byte, []int) {
+	return file_gateway_proto_rawDescGZIP(), []int{0}
+}
+
 // PingRequest is the request for the Ping method
 type PingRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -493,7 +546,9 @@ type ListRequest struct {
 	// Maximum number of requests to return. Zero means the server default.
 	PageSize int32 `protobuf:"varint,5,opt,name=page_size,json=pageSize,proto3" json:"page_size,omitempty"`
 	// Opaque token returned by a previous List response.
-	PageToken     string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	PageToken string `protobuf:"bytes,6,opt,name=page_token,json=pageToken,proto3" json:"page_token,omitempty"`
+	// Sort order for deterministic pagination. Unspecified defaults to FIFO/admission order.
+	Sort          ListSort `protobuf:"varint,7,opt,name=sort,proto3,enum=uber.submitqueue.gateway.ListSort" json:"sort,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -568,6 +623,13 @@ func (x *ListRequest) GetPageToken() string {
 		return x.PageToken
 	}
 	return ""
+}
+
+func (x *ListRequest) GetSort() ListSort {
+	if x != nil {
+		return x.Sort
+	}
+	return ListSort_LIST_SORTED_UNSPECIFIED
 }
 
 // RequestSummary is the current gateway-owned view of one request for queue-listing UX.
@@ -938,7 +1000,7 @@ const file_gateway_proto_rawDesc = "" +
 	"\bmetadata\x18\x03 \x03(\v26.uber.submitqueue.gateway.StatusResponse.MetadataEntryR\bmetadata\x1a;\n" +
 	"\rMetadataEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xbf\x01\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xf7\x01\n" +
 	"\vListRequest\x12\x14\n" +
 	"\x05queue\x18\x01 \x01(\tR\x05queue\x12\"\n" +
 	"\rstart_time_ms\x18\x02 \x01(\x03R\vstartTimeMs\x12\x1e\n" +
@@ -946,7 +1008,8 @@ const file_gateway_proto_rawDesc = "" +
 	"\bstatuses\x18\x04 \x03(\tR\bstatuses\x12\x1b\n" +
 	"\tpage_size\x18\x05 \x01(\x05R\bpageSize\x12\x1d\n" +
 	"\n" +
-	"page_token\x18\x06 \x01(\tR\tpageToken\"\xaf\x03\n" +
+	"page_token\x18\x06 \x01(\tR\tpageToken\x126\n" +
+	"\x04sort\x18\a \x01(\x0e2\".uber.submitqueue.gateway.ListSortR\x04sort\"\xaf\x03\n" +
 	"\x0eRequestSummary\x12\x12\n" +
 	"\x04sqid\x18\x01 \x01(\tR\x04sqid\x12\x14\n" +
 	"\x05queue\x18\x02 \x01(\tR\x05queue\x12\x1f\n" +
@@ -974,7 +1037,11 @@ const file_gateway_proto_rawDesc = "" +
 	"\x05queue\x18\x02 \x01(\tR\x05queue\"a\n" +
 	"\x14RequestNotFoundError\x125\n" +
 	"\x05error\x18\x01 \x01(\v2\x1f.uber.submitqueue.gateway.ErrorR\x05error\x12\x12\n" +
-	"\x04sqid\x18\x02 \x01(\tR\x04sqid2\xdd\x03\n" +
+	"\x04sqid\x18\x02 \x01(\tR\x04sqid*d\n" +
+	"\bListSort\x12\x1b\n" +
+	"\x17LIST_SORTED_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18LIST_SORTED_ADMITTED_ASC\x10\x01\x12\x1d\n" +
+	"\x19LIST_SORTED_ADMITTED_DESC\x10\x022\xdd\x03\n" +
 	"\x12SubmitQueueGateway\x12W\n" +
 	"\x04Ping\x12%.uber.submitqueue.gateway.PingRequest\x1a&.uber.submitqueue.gateway.PingResponse\"\x00\x12W\n" +
 	"\x04Land\x12%.uber.submitqueue.gateway.LandRequest\x1a&.uber.submitqueue.gateway.LandResponse\"\x00\x12]\n" +
@@ -995,50 +1062,53 @@ func file_gateway_proto_rawDescGZIP() []byte {
 	return file_gateway_proto_rawDescData
 }
 
+var file_gateway_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_gateway_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_gateway_proto_goTypes = []any{
-	(*PingRequest)(nil),            // 0: uber.submitqueue.gateway.PingRequest
-	(*PingResponse)(nil),           // 1: uber.submitqueue.gateway.PingResponse
-	(*LandRequest)(nil),            // 2: uber.submitqueue.gateway.LandRequest
-	(*LandResponse)(nil),           // 3: uber.submitqueue.gateway.LandResponse
-	(*CancelRequest)(nil),          // 4: uber.submitqueue.gateway.CancelRequest
-	(*CancelResponse)(nil),         // 5: uber.submitqueue.gateway.CancelResponse
-	(*StatusRequest)(nil),          // 6: uber.submitqueue.gateway.StatusRequest
-	(*StatusResponse)(nil),         // 7: uber.submitqueue.gateway.StatusResponse
-	(*ListRequest)(nil),            // 8: uber.submitqueue.gateway.ListRequest
-	(*RequestSummary)(nil),         // 9: uber.submitqueue.gateway.RequestSummary
-	(*ListResponse)(nil),           // 10: uber.submitqueue.gateway.ListResponse
-	(*Error)(nil),                  // 11: uber.submitqueue.gateway.Error
-	(*UnrecognizedQueueError)(nil), // 12: uber.submitqueue.gateway.UnrecognizedQueueError
-	(*RequestNotFoundError)(nil),   // 13: uber.submitqueue.gateway.RequestNotFoundError
-	nil,                            // 14: uber.submitqueue.gateway.StatusResponse.MetadataEntry
-	nil,                            // 15: uber.submitqueue.gateway.RequestSummary.MetadataEntry
-	(*protopb.Change)(nil),         // 16: uber.base.change.Change
-	(protopb1.Strategy)(0),         // 17: uber.base.mergestrategy.Strategy
+	(ListSort)(0),                  // 0: uber.submitqueue.gateway.ListSort
+	(*PingRequest)(nil),            // 1: uber.submitqueue.gateway.PingRequest
+	(*PingResponse)(nil),           // 2: uber.submitqueue.gateway.PingResponse
+	(*LandRequest)(nil),            // 3: uber.submitqueue.gateway.LandRequest
+	(*LandResponse)(nil),           // 4: uber.submitqueue.gateway.LandResponse
+	(*CancelRequest)(nil),          // 5: uber.submitqueue.gateway.CancelRequest
+	(*CancelResponse)(nil),         // 6: uber.submitqueue.gateway.CancelResponse
+	(*StatusRequest)(nil),          // 7: uber.submitqueue.gateway.StatusRequest
+	(*StatusResponse)(nil),         // 8: uber.submitqueue.gateway.StatusResponse
+	(*ListRequest)(nil),            // 9: uber.submitqueue.gateway.ListRequest
+	(*RequestSummary)(nil),         // 10: uber.submitqueue.gateway.RequestSummary
+	(*ListResponse)(nil),           // 11: uber.submitqueue.gateway.ListResponse
+	(*Error)(nil),                  // 12: uber.submitqueue.gateway.Error
+	(*UnrecognizedQueueError)(nil), // 13: uber.submitqueue.gateway.UnrecognizedQueueError
+	(*RequestNotFoundError)(nil),   // 14: uber.submitqueue.gateway.RequestNotFoundError
+	nil,                            // 15: uber.submitqueue.gateway.StatusResponse.MetadataEntry
+	nil,                            // 16: uber.submitqueue.gateway.RequestSummary.MetadataEntry
+	(*protopb.Change)(nil),         // 17: uber.base.change.Change
+	(protopb1.Strategy)(0),         // 18: uber.base.mergestrategy.Strategy
 }
 var file_gateway_proto_depIdxs = []int32{
-	16, // 0: uber.submitqueue.gateway.LandRequest.change:type_name -> uber.base.change.Change
-	17, // 1: uber.submitqueue.gateway.LandRequest.strategy:type_name -> uber.base.mergestrategy.Strategy
-	14, // 2: uber.submitqueue.gateway.StatusResponse.metadata:type_name -> uber.submitqueue.gateway.StatusResponse.MetadataEntry
-	15, // 3: uber.submitqueue.gateway.RequestSummary.metadata:type_name -> uber.submitqueue.gateway.RequestSummary.MetadataEntry
-	9,  // 4: uber.submitqueue.gateway.ListResponse.requests:type_name -> uber.submitqueue.gateway.RequestSummary
-	11, // 5: uber.submitqueue.gateway.UnrecognizedQueueError.error:type_name -> uber.submitqueue.gateway.Error
-	11, // 6: uber.submitqueue.gateway.RequestNotFoundError.error:type_name -> uber.submitqueue.gateway.Error
-	0,  // 7: uber.submitqueue.gateway.SubmitQueueGateway.Ping:input_type -> uber.submitqueue.gateway.PingRequest
-	2,  // 8: uber.submitqueue.gateway.SubmitQueueGateway.Land:input_type -> uber.submitqueue.gateway.LandRequest
-	4,  // 9: uber.submitqueue.gateway.SubmitQueueGateway.Cancel:input_type -> uber.submitqueue.gateway.CancelRequest
-	6,  // 10: uber.submitqueue.gateway.SubmitQueueGateway.Status:input_type -> uber.submitqueue.gateway.StatusRequest
-	8,  // 11: uber.submitqueue.gateway.SubmitQueueGateway.List:input_type -> uber.submitqueue.gateway.ListRequest
-	1,  // 12: uber.submitqueue.gateway.SubmitQueueGateway.Ping:output_type -> uber.submitqueue.gateway.PingResponse
-	3,  // 13: uber.submitqueue.gateway.SubmitQueueGateway.Land:output_type -> uber.submitqueue.gateway.LandResponse
-	5,  // 14: uber.submitqueue.gateway.SubmitQueueGateway.Cancel:output_type -> uber.submitqueue.gateway.CancelResponse
-	7,  // 15: uber.submitqueue.gateway.SubmitQueueGateway.Status:output_type -> uber.submitqueue.gateway.StatusResponse
-	10, // 16: uber.submitqueue.gateway.SubmitQueueGateway.List:output_type -> uber.submitqueue.gateway.ListResponse
-	12, // [12:17] is the sub-list for method output_type
-	7,  // [7:12] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	17, // 0: uber.submitqueue.gateway.LandRequest.change:type_name -> uber.base.change.Change
+	18, // 1: uber.submitqueue.gateway.LandRequest.strategy:type_name -> uber.base.mergestrategy.Strategy
+	15, // 2: uber.submitqueue.gateway.StatusResponse.metadata:type_name -> uber.submitqueue.gateway.StatusResponse.MetadataEntry
+	0,  // 3: uber.submitqueue.gateway.ListRequest.sort:type_name -> uber.submitqueue.gateway.ListSort
+	16, // 4: uber.submitqueue.gateway.RequestSummary.metadata:type_name -> uber.submitqueue.gateway.RequestSummary.MetadataEntry
+	10, // 5: uber.submitqueue.gateway.ListResponse.requests:type_name -> uber.submitqueue.gateway.RequestSummary
+	12, // 6: uber.submitqueue.gateway.UnrecognizedQueueError.error:type_name -> uber.submitqueue.gateway.Error
+	12, // 7: uber.submitqueue.gateway.RequestNotFoundError.error:type_name -> uber.submitqueue.gateway.Error
+	1,  // 8: uber.submitqueue.gateway.SubmitQueueGateway.Ping:input_type -> uber.submitqueue.gateway.PingRequest
+	3,  // 9: uber.submitqueue.gateway.SubmitQueueGateway.Land:input_type -> uber.submitqueue.gateway.LandRequest
+	5,  // 10: uber.submitqueue.gateway.SubmitQueueGateway.Cancel:input_type -> uber.submitqueue.gateway.CancelRequest
+	7,  // 11: uber.submitqueue.gateway.SubmitQueueGateway.Status:input_type -> uber.submitqueue.gateway.StatusRequest
+	9,  // 12: uber.submitqueue.gateway.SubmitQueueGateway.List:input_type -> uber.submitqueue.gateway.ListRequest
+	2,  // 13: uber.submitqueue.gateway.SubmitQueueGateway.Ping:output_type -> uber.submitqueue.gateway.PingResponse
+	4,  // 14: uber.submitqueue.gateway.SubmitQueueGateway.Land:output_type -> uber.submitqueue.gateway.LandResponse
+	6,  // 15: uber.submitqueue.gateway.SubmitQueueGateway.Cancel:output_type -> uber.submitqueue.gateway.CancelResponse
+	8,  // 16: uber.submitqueue.gateway.SubmitQueueGateway.Status:output_type -> uber.submitqueue.gateway.StatusResponse
+	11, // 17: uber.submitqueue.gateway.SubmitQueueGateway.List:output_type -> uber.submitqueue.gateway.ListResponse
+	13, // [13:18] is the sub-list for method output_type
+	8,  // [8:13] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_gateway_proto_init() }
@@ -1051,13 +1121,14 @@ func file_gateway_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gateway_proto_rawDesc), len(file_gateway_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_gateway_proto_goTypes,
 		DependencyIndexes: file_gateway_proto_depIdxs,
+		EnumInfos:         file_gateway_proto_enumTypes,
 		MessageInfos:      file_gateway_proto_msgTypes,
 	}.Build()
 	File_gateway_proto = out.File

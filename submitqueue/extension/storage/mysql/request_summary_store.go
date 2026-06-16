@@ -23,9 +23,9 @@ import (
 	"strings"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/uber-go/tally/v4"
+	"github.com/uber-go/tally"
 
-	"github.com/uber/submitqueue/core/metrics"
+	"github.com/uber/submitqueue/platform/metrics"
 	"github.com/uber/submitqueue/submitqueue/entity"
 	"github.com/uber/submitqueue/submitqueue/extension/storage"
 )
@@ -142,15 +142,20 @@ func (s *requestSummaryStore) List(ctx context.Context, opts storage.RequestSumm
 		clauses = append(clauses, "status IN ("+strings.Join(placeholders, ", ")+")")
 	}
 
+	cursorClause, orderBy, err := listSortSQL(opts.Sort)
+	if err != nil {
+		return storage.RequestSummaryListResult{}, err
+	}
 	if opts.Cursor != nil {
-		clauses = append(clauses, "(started_at_ms < ? OR (started_at_ms = ? AND request_id < ?))")
+		clauses = append(clauses, cursorClause)
 		args = append(args, opts.Cursor.StartedAtMs, opts.Cursor.StartedAtMs, opts.Cursor.RequestID)
 	}
 
 	args = append(args, opts.Limit+1)
 	query := "SELECT request_id, queue, change_uri, status, request_version, status_timestamp_ms, winner_terminal_version, last_error, metadata, started_at_ms, updated_at_ms, completed_at_ms, terminal, version FROM request_summary WHERE " +
 		strings.Join(clauses, " AND ") +
-		" ORDER BY started_at_ms DESC, request_id DESC LIMIT ?"
+		orderBy +
+		" LIMIT ?"
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
@@ -178,6 +183,21 @@ func (s *requestSummaryStore) List(ctx context.Context, opts storage.RequestSumm
 	}
 
 	return storage.RequestSummaryListResult{Requests: summaries, NextCursor: nextCursor}, nil
+}
+
+func listSortSQL(sort storage.RequestSummarySort) (cursorClause string, orderBy string, err error) {
+	switch sort {
+	case storage.RequestSummarySortAdmittedAsc, "":
+		return "(started_at_ms > ? OR (started_at_ms = ? AND request_id > ?))",
+			" ORDER BY started_at_ms ASC, request_id ASC",
+			nil
+	case storage.RequestSummarySortAdmittedDesc:
+		return "(started_at_ms < ? OR (started_at_ms = ? AND request_id < ?))",
+			" ORDER BY started_at_ms DESC, request_id DESC",
+			nil
+	default:
+		return "", "", fmt.Errorf("unsupported request summary sort %q", sort)
+	}
 }
 
 // get reads the current summary row without locking. Returns found=false when no row exists.
