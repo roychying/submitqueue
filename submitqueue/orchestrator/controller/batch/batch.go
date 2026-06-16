@@ -28,6 +28,7 @@ import (
 	"github.com/uber/submitqueue/submitqueue/entity"
 	"github.com/uber/submitqueue/submitqueue/extension/conflict"
 	"github.com/uber/submitqueue/submitqueue/extension/storage"
+	"github.com/uber/submitqueue/submitqueue/orchestrator/controller/batchstate"
 	"go.uber.org/zap"
 )
 
@@ -135,20 +136,12 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) (r
 	}
 
 	// Ask the conflict analyzer which active batches the new batch must serialize
-	// behind. ListActive returns all non-terminal batches; we narrow to
-	// Created/Speculating/Merging so the analyzer only sees batches that can still
-	// acquire new conflicts.
-	allActive, err := c.store.GetBatchStore().ListActive(ctx, request.Queue)
+	// behind. Membership rows are hints; batchstate.List resolves authoritative
+	// batch rows and returns only the current states requested here.
+	activeBatches, err := batchstate.List(ctx, c.store, request.Queue, batchstate.ConflictStates...)
 	if err != nil {
 		metrics.NamedCounter(c.metricsScope, opName, "batch_store_errors", 1)
 		return fmt.Errorf("failed to get active batches for queue=%s: %w", request.Queue, err)
-	}
-	activeBatches := make([]entity.Batch, 0, len(allActive))
-	for _, b := range allActive {
-		switch b.State {
-		case entity.BatchStateCreated, entity.BatchStateSpeculating, entity.BatchStateMerging:
-			activeBatches = append(activeBatches, b)
-		}
 	}
 
 	// Dedupe by batch ID since a single (analyzed, in-flight) pair may be
@@ -283,7 +276,7 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) (r
 	// Persist batch to storage.
 	// This is the final operation that concludes the batch creation process. If it fails, BatchDependents will be pointing to a batch id that does not exist.
 	// We do not reuse batch ids, a retry of this operation will create a new batch with a new ID. The downstream logic that operates on BatchDependent should be able to handle stale entries.
-	if err := c.store.GetBatchStore().Create(ctx, batch); err != nil {
+	if err := batchstate.Create(ctx, c.store, batch); err != nil {
 		metrics.NamedCounter(c.metricsScope, opName, "batch_store_errors", 1)
 		return fmt.Errorf("failed to create batch in batch store: %w", err)
 	}

@@ -388,92 +388,91 @@ func (s *StorageContractSuite) TestStorage_ChangeCreate_EmptyDetails() {
 	assert.Equal(t, entity.ChangeDetails{}, got[0].Details)
 }
 
-// newBatch builds a batch fixture for the active-listing tests.
-func newBatch(id, queue string, state entity.BatchState) entity.Batch {
-	return entity.Batch{
-		ID:           id,
-		Queue:        queue,
-		Contains:     []string{id + "/req"},
-		Dependencies: []string{},
-		State:        state,
-		Version:      1,
-	}
-}
-
-// activeBatchIDs returns the sorted IDs of the queue's active batches, for stable comparison.
-func (s *StorageContractSuite) activeBatchIDs(queue string) []string {
+// membershipIDs returns sorted batch IDs for stable comparison.
+func (s *StorageContractSuite) membershipIDs(queue string, state entity.BatchState) []string {
 	t := s.T()
-	batches, err := s.storage.GetBatchStore().ListActive(s.ctx, queue)
+	ids, err := s.storage.GetBatchStateMembershipStore().ListIDs(s.ctx, queue, state)
 	require.NoError(t, err)
-	ids := make([]string, 0, len(batches))
-	for _, b := range batches {
-		ids = append(ids, b.ID)
-	}
 	sort.Strings(ids)
 	return ids
 }
 
-// TestStorage_BatchListActive_ReturnsActive verifies a freshly created batch is
-// listed as active, and that ListActive resolves the full entity.
-func (s *StorageContractSuite) TestStorage_BatchListActive_ReturnsActive() {
+// TestStorage_BatchStateMembership_AddAndList verifies membership rows are
+// listed by their queue/state key.
+func (s *StorageContractSuite) TestStorage_BatchStateMembership_AddAndList() {
 	t := s.T()
 	ctx := s.ctx
-	const queue = "bq-active"
+	const queue = "bsm-list"
 
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queue+"/batch/1", queue, entity.BatchStateCreated)))
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queue+"/batch/2", queue, entity.BatchStateSpeculating)))
+	store := s.storage.GetBatchStateMembershipStore()
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateCreated, queue+"/batch/1"))
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateCreated, queue+"/batch/2"))
 
-	batches, err := s.storage.GetBatchStore().ListActive(ctx, queue)
-	require.NoError(t, err)
-	require.Len(t, batches, 2)
-	assert.Equal(t, []string{queue + "/batch/1", queue + "/batch/2"}, s.activeBatchIDs(queue))
+	assert.Equal(t, []string{queue + "/batch/1", queue + "/batch/2"}, s.membershipIDs(queue, entity.BatchStateCreated))
 }
 
-// TestStorage_BatchListActive_ExcludesTerminal verifies that a batch transitioned
-// to a terminal state via UpdateState drops out of the active listing.
-func (s *StorageContractSuite) TestStorage_BatchListActive_ExcludesTerminal() {
+// TestStorage_BatchStateMembership_AddIdempotent verifies repeated Add calls do
+// not duplicate rows.
+func (s *StorageContractSuite) TestStorage_BatchStateMembership_AddIdempotent() {
 	t := s.T()
 	ctx := s.ctx
-	const queue = "bq-terminal"
+	const queue = "bsm-idempotent"
 
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queue+"/batch/1", queue, entity.BatchStateMerging)))
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queue+"/batch/2", queue, entity.BatchStateCreated)))
+	store := s.storage.GetBatchStateMembershipStore()
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateCreated, queue+"/batch/1"))
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateCreated, queue+"/batch/1"))
 
-	// batch/1 lands; it must no longer be active.
-	require.NoError(t, s.storage.GetBatchStore().UpdateState(ctx, queue+"/batch/1", 1, 2, entity.BatchStateSucceeded))
-
-	assert.Equal(t, []string{queue + "/batch/2"}, s.activeBatchIDs(queue))
+	assert.Equal(t, []string{queue + "/batch/1"}, s.membershipIDs(queue, entity.BatchStateCreated))
 }
 
-// TestStorage_BatchListActive_ExcludesTerminalViaScoreAndState covers the other
-// terminal write path (UpdateScoreAndState) used by the score/speculate pipeline.
-func (s *StorageContractSuite) TestStorage_BatchListActive_ExcludesTerminalViaScoreAndState() {
+// TestStorage_BatchStateMembership_Remove verifies Remove is idempotent and
+// deletes only the specified row.
+func (s *StorageContractSuite) TestStorage_BatchStateMembership_Remove() {
 	t := s.T()
 	ctx := s.ctx
-	const queue = "bq-terminal-score"
+	const queue = "bsm-remove"
 
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queue+"/batch/1", queue, entity.BatchStateCreated)))
-	require.NoError(t, s.storage.GetBatchStore().UpdateScoreAndState(ctx, queue+"/batch/1", 1, 2, 0.5, entity.BatchStateFailed))
+	store := s.storage.GetBatchStateMembershipStore()
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateCreated, queue+"/batch/1"))
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateCreated, queue+"/batch/2"))
+	require.NoError(t, store.Remove(ctx, queue, entity.BatchStateCreated, queue+"/batch/1"))
+	require.NoError(t, store.Remove(ctx, queue, entity.BatchStateCreated, queue+"/batch/1"))
 
-	assert.Empty(t, s.activeBatchIDs(queue))
+	assert.Equal(t, []string{queue + "/batch/2"}, s.membershipIDs(queue, entity.BatchStateCreated))
 }
 
-// TestStorage_BatchListActive_QueueScoped verifies the listing is scoped to one queue.
-func (s *StorageContractSuite) TestStorage_BatchListActive_QueueScoped() {
+// TestStorage_BatchStateMembership_QueueScoped verifies ListIDs never returns
+// rows from another queue.
+func (s *StorageContractSuite) TestStorage_BatchStateMembership_QueueScoped() {
 	t := s.T()
 	ctx := s.ctx
-	const queueA = "bq-scoped-a"
-	const queueB = "bq-scoped-b"
+	const queueA = "bsm-scoped-a"
+	const queueB = "bsm-scoped-b"
 
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queueA+"/batch/1", queueA, entity.BatchStateCreated)))
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queueB+"/batch/1", queueB, entity.BatchStateCreated)))
-	require.NoError(t, s.storage.GetBatchStore().Create(ctx, newBatch(queueB+"/batch/2", queueB, entity.BatchStateCreated)))
+	store := s.storage.GetBatchStateMembershipStore()
+	require.NoError(t, store.Add(ctx, queueA, entity.BatchStateCreated, queueA+"/batch/1"))
+	require.NoError(t, store.Add(ctx, queueB, entity.BatchStateCreated, queueB+"/batch/1"))
+	require.NoError(t, store.Add(ctx, queueB, entity.BatchStateCreated, queueB+"/batch/2"))
 
-	assert.Equal(t, []string{queueA + "/batch/1"}, s.activeBatchIDs(queueA))
-	assert.Equal(t, []string{queueB + "/batch/1", queueB + "/batch/2"}, s.activeBatchIDs(queueB))
+	assert.Equal(t, []string{queueA + "/batch/1"}, s.membershipIDs(queueA, entity.BatchStateCreated))
+	assert.Equal(t, []string{queueB + "/batch/1", queueB + "/batch/2"}, s.membershipIDs(queueB, entity.BatchStateCreated))
 }
 
-// TestStorage_BatchListActive_UnknownQueue returns an empty set for a queue with no batches.
-func (s *StorageContractSuite) TestStorage_BatchListActive_UnknownQueue() {
-	assert.Empty(s.T(), s.activeBatchIDs("bq-does-not-exist"))
+// TestStorage_BatchStateMembership_StateScoped verifies ListIDs is scoped by state.
+func (s *StorageContractSuite) TestStorage_BatchStateMembership_StateScoped() {
+	t := s.T()
+	ctx := s.ctx
+	const queue = "bsm-state-scoped"
+
+	store := s.storage.GetBatchStateMembershipStore()
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateCreated, queue+"/batch/1"))
+	require.NoError(t, store.Add(ctx, queue, entity.BatchStateSpeculating, queue+"/batch/2"))
+
+	assert.Equal(t, []string{queue + "/batch/1"}, s.membershipIDs(queue, entity.BatchStateCreated))
+	assert.Equal(t, []string{queue + "/batch/2"}, s.membershipIDs(queue, entity.BatchStateSpeculating))
+}
+
+// TestStorage_BatchStateMembership_UnknownKey returns an empty set for a key with no rows.
+func (s *StorageContractSuite) TestStorage_BatchStateMembership_UnknownKey() {
+	assert.Empty(s.T(), s.membershipIDs("bsm-does-not-exist", entity.BatchStateCreated))
 }
