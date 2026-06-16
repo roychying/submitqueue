@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "entity",
+    srcs = [
+        "check.go",
+        "entity.go",
+        "job.go",
+    ],
+    importpath = "github.com/uber/submitqueue/runway/entity",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//entity/change",
+        "//entity/mergestrategy",
+    ],
+)
+
+go_test(
+    name = "entity_test",
+    srcs = [
+        "check_test.go",
+        "job_test.go",
+    ],
+    embed = [":entity"],
+    deps = [
+        "//entity/change",
+        "//entity/mergestrategy",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+    ],
+)
