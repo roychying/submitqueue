@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "server_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/uber/submitqueue/example/runway/orchestrator/server",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//platform/consumer",
+        "//platform/errs",
+        "//platform/errs/generic",
+        "//platform/errs/mysql",
+        "//platform/extension/messagequeue",
+        "//platform/extension/messagequeue/mysql",
+        "//runway/core/topickey",
+        "//runway/extension/vcs",
+        "//runway/extension/vcs/noop",
+        "//runway/orchestrator/controller/merge",
+        "//runway/orchestrator/controller/mergeconflictcheck",
+        "@com_github_go_sql_driver_mysql//:mysql",
+        "@com_github_uber_go_tally//:tally",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "orchestrator",
+    embed = [":server_lib"],
+    visibility = ["//visibility:public"],
+)

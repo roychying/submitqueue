@@ -1,0 +1,40 @@
+# Docker Compose for Runway orchestrator manual testing
+#
+#
+# IMPORTANT: Before running compose, build the Linux binary:
+#   make build-runway-orchestrator-linux
+#   OR
+#   bazel build --platforms=@rules_go//go/toolchain:linux_amd64 //example/runway/orchestrator/server:orchestrator
+#
+# Quick start:
+#   make local-runway-orchestrator-start
+#
+# After `up`, only the queue schema is applied (`local-init-runway-queue-schema`).
+# Runway is stateless — no application database is needed.
+
+services:
+  # Queue Database - Messaging infrastructure (messages, offsets, partition leases)
+  mysql-queue:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: submitqueue
+    ports:
+      - "3306" # Random ephemeral port to avoid conflicts
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  orchestrator-service:
+    build:
+      context: ${REPO_ROOT}
+      dockerfile: example/runway/orchestrator/server/Dockerfile
+    environment:
+      # Queue infrastructure connection (runway is stateless — no app DB)
+      - QUEUE_MYSQL_DSN=root:root@tcp(mysql-queue:3306)/submitqueue?parseTime=true
+      - HOSTNAME=orchestrator-dev
+    depends_on:
+      mysql-queue:
+        condition: service_healthy
