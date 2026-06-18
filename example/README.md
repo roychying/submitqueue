@@ -8,8 +8,9 @@ Example gRPC servers and clients for running the submitqueue services locally.
 - **SubmitQueue Orchestrator** (port 8082) — coordinates the pipeline. Exposes `Ping` RPC and consumes queue messages across 9 pipeline topics.
 - **Stovepipe Gateway** (port 8083) - entry point for commit deployment verification requests. Exposes `Ping` RPC.
 - **Stovepipe Orchestrator** (port 8084) - coordinates the commit verification pipeline. Exposes `Ping` RPC.
+- **Runway Orchestrator** (port 8085) - merge-conflict checking and merging on behalf of SubmitQueue. Exposes `Ping` RPC and consumes queue messages across 2 pipeline topics.
 
-Services require MySQL (app database + queue database). Docker Compose handles this automatically.
+Services require MySQL (app database + queue database). Docker Compose handles this automatically. Runway is consumer-only (no gateway) and has no app database.
 
 ## Directory Structure
 
@@ -43,6 +44,13 @@ example/
         │   ├── Dockerfile
         │   └── docker-compose.yml  # Orchestrator-only stack
         └── client/main.go          # Stovepipe orchestrator ping client
+└── runway/
+    └── orchestrator/
+        ├── server/
+        │   ├── main.go             # Runway orchestrator gRPC + consumer server (Docker: :8080; go run default :8085)
+        │   ├── Dockerfile
+        │   └── docker-compose.yml  # Orchestrator-only stack (queue DB only, no app DB)
+        └── client/main.go          # Runway orchestrator ping client
 ```
 
 ## Running
@@ -60,6 +68,9 @@ make local-submitqueue-orchestrator-start
 make local-stovepipe-start
 make local-stovepipe-gateway-start
 make local-stovepipe-orchestrator-start
+
+# Start Runway Orchestrator (consumer + gRPC, queue DB only)
+make local-runway-orchestrator-start
 
 # View logs and status
 make local-submitqueue-logs
@@ -80,11 +91,15 @@ bazel build //example/submitqueue/orchestrator/server:orchestrator
 bazel build //example/stovepipe/gateway/server:gateway
 bazel build //example/stovepipe/orchestrator/server:orchestrator
 
+# Runway
+bazel build //example/runway/orchestrator/server:orchestrator
+
 # Build clients
 bazel build //example/submitqueue/gateway/client:gateway
 bazel build //example/submitqueue/orchestrator/client:orchestrator
 bazel build //example/stovepipe/gateway/client:gateway
 bazel build //example/stovepipe/orchestrator/client:orchestrator
+bazel build //example/runway/orchestrator/client:client
 ```
 
 ### Go
@@ -94,6 +109,7 @@ go run example/submitqueue/gateway/server/main.go
 go run example/submitqueue/orchestrator/server/main.go
 go run example/stovepipe/gateway/server/main.go
 go run example/stovepipe/orchestrator/server/main.go
+go run example/runway/orchestrator/server/main.go
 ```
 
 ## Testing with Clients
@@ -104,6 +120,7 @@ go run example/submitqueue/gateway/client/main.go -addr localhost:8081 -message 
 go run example/submitqueue/orchestrator/client/main.go -addr localhost:8082 -message "hello"
 go run example/stovepipe/gateway/client/main.go -addr localhost:8083 -message "hello"
 go run example/stovepipe/orchestrator/client/main.go -addr localhost:8084 -message "hello"
+go run example/runway/orchestrator/client/main.go -addr localhost:8085 -message "hello"
 ```
 
 Client flags:
@@ -126,18 +143,21 @@ grpcurl -plaintext -d '{"message": "hello"}' localhost:8081 uber.submitqueue.gat
 grpcurl -plaintext -d '{"message": "hello"}' localhost:8082 uber.submitqueue.orchestrator.SubmitQueueOrchestrator/Ping
 grpcurl -plaintext -d '{"message": "hello"}' localhost:8083 uber.submitqueue.stovepipe.StovepipeGateway/Ping
 grpcurl -plaintext -d '{"message": "hello"}' localhost:8084 uber.submitqueue.stovepipe.orchestrator.StovepipeOrchestrator/Ping
+grpcurl -plaintext -d '{"message": "hello"}' localhost:8085 uber.submitqueue.runway.orchestrator.RunwayOrchestrator/Ping
 
 # List services
 grpcurl -plaintext localhost:8081 list
 grpcurl -plaintext localhost:8082 list
 grpcurl -plaintext localhost:8083 list
 grpcurl -plaintext localhost:8084 list
+grpcurl -plaintext localhost:8085 list
 
 # Describe a service
 grpcurl -plaintext localhost:8081 describe uber.submitqueue.gateway.SubmitQueueGateway
 grpcurl -plaintext localhost:8082 describe uber.submitqueue.orchestrator.SubmitQueueOrchestrator
 grpcurl -plaintext localhost:8083 describe uber.submitqueue.stovepipe.StovepipeGateway
 grpcurl -plaintext localhost:8084 describe uber.submitqueue.stovepipe.orchestrator.StovepipeOrchestrator
+grpcurl -plaintext localhost:8085 describe uber.submitqueue.runway.orchestrator.RunwayOrchestrator
 ```
 
 ## API Reference
@@ -174,6 +194,15 @@ grpcurl -plaintext localhost:8084 describe uber.submitqueue.stovepipe.orchestrat
 
 **Service**: `uber.submitqueue.stovepipe.orchestrator.StovepipeOrchestrator`
 **Proto**: `api/stovepipe/orchestrator/proto/orchestrator.proto`
+
+| Method | Description |
+|--------|-------------|
+| `Ping` | Health check |
+
+### Runway Orchestrator
+
+**Service**: `uber.submitqueue.runway.orchestrator.RunwayOrchestrator`
+**Proto**: `api/runway/orchestrator/proto/orchestrator.proto`
 
 | Method | Description |
 |--------|-------------|
