@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "noop",
+    srcs = ["noop.go"],
+    importpath = "github.com/uber/submitqueue/runway/extension/vcs/noop",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//runway/entity",
+        "//runway/extension/vcs",
+    ],
+)
+
+go_test(
+    name = "noop_test",
+    srcs = ["noop_test.go"],
+    embed = [":noop"],
+    deps = [
+        "//platform/base/change",
+        "//platform/base/mergestrategy",
+        "//runway/entity",
+        "@com_github_stretchr_testify//assert",
+        "@com_github_stretchr_testify//require",
+    ],
+)
