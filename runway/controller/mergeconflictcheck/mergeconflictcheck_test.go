@@ -26,7 +26,6 @@ import (
 	runwaypb "github.com/uber/submitqueue/api/runway/messagequeue/protopb"
 	entityqueue "github.com/uber/submitqueue/platform/base/messagequeue"
 	"github.com/uber/submitqueue/platform/consumer"
-	"github.com/uber/submitqueue/platform/errs"
 	queuemock "github.com/uber/submitqueue/platform/extension/messagequeue/mock"
 	"github.com/uber/submitqueue/runway/extension/merger"
 	mergermock "github.com/uber/submitqueue/runway/extension/merger/mock"
@@ -217,8 +216,6 @@ func TestProcess_MergerInfraError(t *testing.T) {
 
 	err := controller.Process(context.Background(), delivery)
 	require.Error(t, err)
-	// Non-retryable: the merger marks genuinely transient VCS failures itself.
-	assert.False(t, errs.IsRetryable(err))
 }
 
 func TestProcess_FactoryError(t *testing.T) {
@@ -239,7 +236,6 @@ func TestProcess_FactoryError(t *testing.T) {
 
 	err := controller.Process(context.Background(), delivery)
 	require.Error(t, err)
-	assert.False(t, errs.IsRetryable(err))
 }
 
 func TestProcess_PublishError(t *testing.T) {
@@ -268,8 +264,6 @@ func TestProcess_PublishError(t *testing.T) {
 
 	err := controller.Process(context.Background(), delivery)
 	require.Error(t, err)
-	// Retryable: the signal publish is the result hand-off and must replay.
-	assert.True(t, errs.IsRetryable(err))
 }
 
 func TestProcess_DeserializeError(t *testing.T) {

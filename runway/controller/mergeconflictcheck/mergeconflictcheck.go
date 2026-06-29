@@ -32,7 +32,6 @@ import (
 	runwaypb "github.com/uber/submitqueue/api/runway/messagequeue/protopb"
 	entityqueue "github.com/uber/submitqueue/platform/base/messagequeue"
 	"github.com/uber/submitqueue/platform/consumer"
-	"github.com/uber/submitqueue/platform/errs"
 	"github.com/uber/submitqueue/platform/metrics"
 	"github.com/uber/submitqueue/runway/extension/merger"
 	"go.uber.org/zap"
@@ -77,13 +76,6 @@ func NewController(p Params) *Controller {
 
 // Process deserializes the merge request, performs a dry-run merge check, and
 // publishes the result. Returns nil to ack, or an error to nack.
-//
-// Error classification: deserialize, factory, and check failures are
-// non-retryable (reject to DLQ) — a malformed payload or misconfigured target
-// will not succeed on replay, and a genuinely transient VCS failure is the
-// merger implementation's job to mark retryable (the wrap here preserves it).
-// The signal publish is retryable: it is the hand-off that carries the result
-// back to the orchestrator, so a transient enqueue blip should replay.
 func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) (retErr error) {
 	const opName = "process"
 
@@ -113,30 +105,26 @@ func (c *Controller) Process(ctx context.Context, delivery consumer.Delivery) (r
 	}
 
 	result, err := m.CheckMergeability(ctx, request)
+	if err != nil && !errors.Is(err, merger.ErrConflict) {
+		metrics.NamedCounter(c.metricsScope, opName, "check_errors", 1)
+		return fmt.Errorf("failed to check mergeability for %s: %w", request.GetId(), err)
+	}
 	if err != nil {
-		if errors.Is(err, merger.ErrConflict) {
-			metrics.NamedCounter(c.metricsScope, opName, "merge_conflicts", 1)
-			c.logger.Infow("merge conflict detected",
-				"id", request.GetId(),
-				"queue_name", request.GetQueueName(),
-			)
-			result = &runwaymq.MergeResult{
-				Id:      request.GetId(),
-				Outcome: runwaypb.Outcome_FAILED,
-				Reason:  err.Error(),
-			}
-		} else {
-			metrics.NamedCounter(c.metricsScope, opName, "check_errors", 1)
-			return fmt.Errorf("failed to check mergeability for %s: %w", request.GetId(), err)
+		metrics.NamedCounter(c.metricsScope, opName, "merge_conflicts", 1)
+		c.logger.Infow("merge conflict detected",
+			"id", request.GetId(),
+			"queue_name", request.GetQueueName(),
+		)
+		result = &runwaymq.MergeResult{
+			Id:      request.GetId(),
+			Outcome: runwaypb.Outcome_FAILED,
+			Reason:  err.Error(),
 		}
 	}
 
 	if err := c.publish(ctx, runwaymq.TopicKeyMergeConflictCheckSignal, result, msg.PartitionKey); err != nil {
 		metrics.NamedCounter(c.metricsScope, opName, "publish_errors", 1)
-		// Retryable: publishing the result is the hand-off that keeps this
-		// conflict check alive; a transient enqueue blip should replay rather
-		// than DLQ the only message carrying the result back to the orchestrator.
-		return errs.NewRetryableError(fmt.Errorf("failed to publish merge-conflict-check result for %s: %w", request.GetId(), err))
+		return fmt.Errorf("failed to publish merge-conflict-check result for %s: %w", request.GetId(), err)
 	}
 
 	c.logger.Infow("published merge-conflict-check result",

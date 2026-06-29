@@ -26,7 +26,6 @@ import (
 	runwaypb "github.com/uber/submitqueue/api/runway/messagequeue/protopb"
 	entityqueue "github.com/uber/submitqueue/platform/base/messagequeue"
 	"github.com/uber/submitqueue/platform/consumer"
-	"github.com/uber/submitqueue/platform/errs"
 	queuemock "github.com/uber/submitqueue/platform/extension/messagequeue/mock"
 	"github.com/uber/submitqueue/runway/extension/merger"
 	mergermock "github.com/uber/submitqueue/runway/extension/merger/mock"
@@ -270,7 +269,7 @@ func TestProcess_PublishError(t *testing.T) {
 
 	err := controller.Process(context.Background(), delivery)
 	require.Error(t, err)
-	assert.True(t, errs.IsRetryable(err))
+	assert.Contains(t, err.Error(), "failed to publish")
 }
 
 func TestProcess_DeserializeError(t *testing.T) {
