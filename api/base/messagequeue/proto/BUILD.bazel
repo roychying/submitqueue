@@ -33,9 +33,3 @@ go_library(
     visibility = ["//visibility:public"],
 )
 
-go_library(
-    name = "protopb",
-    embed = [":messagequeuepb_go_proto"],
-    importpath = "github.com/uber/submitqueue/api/base/messagequeue/protopb",
-    visibility = ["//visibility:public"],
-)
