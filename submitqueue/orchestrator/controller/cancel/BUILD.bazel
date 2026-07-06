@@ -36,3 +36,9 @@ go_test(
         "@org_uber_go_zap//zaptest",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":cancel",
+    visibility = ["//visibility:public"],
+)

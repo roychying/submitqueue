@@ -16,3 +16,9 @@ go_library(
         "@com_github_stretchr_testify//suite",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":storage",
+    visibility = ["//visibility:public"],
+)

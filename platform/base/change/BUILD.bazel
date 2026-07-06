@@ -6,3 +6,9 @@ go_library(
     importpath = "github.com/uber/submitqueue/platform/base/change",
     visibility = ["//visibility:public"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":change",
+    visibility = ["//visibility:public"],
+)

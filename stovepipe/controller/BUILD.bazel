@@ -49,3 +49,9 @@ go_test(
         "@org_uber_go_zap//:zap",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":controller",
+    visibility = ["//visibility:public"],
+)

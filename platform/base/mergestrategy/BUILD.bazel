@@ -6,3 +6,9 @@ go_library(
     importpath = "github.com/uber/submitqueue/platform/base/mergestrategy",
     visibility = ["//visibility:public"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":mergestrategy",
+    visibility = ["//visibility:public"],
+)

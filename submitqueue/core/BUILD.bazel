@@ -6,3 +6,9 @@ go_library(
     importpath = "github.com/uber/submitqueue/submitqueue/core",
     visibility = ["//visibility:public"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":core",
+    visibility = ["//visibility:public"],
+)

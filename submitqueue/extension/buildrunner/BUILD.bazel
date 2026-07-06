@@ -14,3 +14,9 @@ go_library(
         "//submitqueue/entity",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":buildrunner",
+    visibility = ["//visibility:public"],
+)

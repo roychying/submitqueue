@@ -16,3 +16,9 @@ go_library(
         "@org_golang_google_grpc//credentials/insecure",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":testutil",
+    visibility = ["//visibility:public"],
+)

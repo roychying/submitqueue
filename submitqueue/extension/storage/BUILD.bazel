@@ -16,3 +16,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = ["//submitqueue/entity"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":storage",
+    visibility = ["//visibility:public"],
+)

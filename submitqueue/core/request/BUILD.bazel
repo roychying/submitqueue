@@ -37,3 +37,9 @@ go_test(
         "@org_uber_go_mock//gomock",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":request",
+    visibility = ["//visibility:public"],
+)

@@ -26,3 +26,9 @@ go_test(
         "@com_github_uber_go_tally//:tally",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":heuristic",
+    visibility = ["//visibility:public"],
+)

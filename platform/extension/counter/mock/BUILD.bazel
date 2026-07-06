@@ -7,3 +7,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = ["@org_uber_go_mock//gomock"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":mock",
+    visibility = ["//visibility:public"],
+)

@@ -26,3 +26,9 @@ go_library(
         "@org_uber_go_yarpc//encoding/protobuf/v2:protobuf",
     ],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":protopb",
+    visibility = ["//visibility:public"],
+)

@@ -2,6 +2,13 @@ load("@gazelle//:def.bzl", "gazelle")
 
 # gazelle:prefix github.com/uber/submitqueue
 
+# Add a go_default_library alias next to every native-named Go target so
+# consumers pinning go-code's naming convention (e.g. go-code's own
+# go_repository consumption with build_file_generation="off") can depend on
+# ":go_default_library" without renaming our own targets or breaking existing
+# consumers that use the native short names.
+# gazelle:go_naming_convention import_alias
+
 # Exclude nested worktrees (created under .claude/worktrees) so gazelle does not
 # index them as duplicate rule definitions and corrupt the canonical BUILD files.
 # gazelle:exclude .claude

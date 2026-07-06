@@ -13,3 +13,9 @@ go_test(
     embed = [":messagequeue"],
     deps = ["@com_github_stretchr_testify//assert"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":messagequeue",
+    visibility = ["//visibility:public"],
+)

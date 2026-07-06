@@ -7,3 +7,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = ["//platform/consumer"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":topickey",
+    visibility = ["//visibility:public"],
+)

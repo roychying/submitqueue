@@ -11,3 +11,9 @@ go_library(
     visibility = ["//visibility:public"],
     deps = ["//stovepipe/entity"],
 )
+
+alias(
+    name = "go_default_library",
+    actual = ":storage",
+    visibility = ["//visibility:public"],
+)
